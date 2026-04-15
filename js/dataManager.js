@@ -2,7 +2,7 @@
 import { calculationEngine } from './calculationEngine.js';
 
 export const arenaJsonDataUrl = "https://raw.communitydragon.org/pbe/cdragon/arena/";
-export const championJsonDataUrl = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json";
+export const championJsonDataUrl = "https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json";
 export const communityDragonBaseUrl = "https://raw.communitydragon.org/pbe/game/";
 // Use /pbe/ instead of /latest/ — the latter started 404-ing for some champion
 // IDs (e.g. 238 Zed) while /pbe/ consistently has them. Other CommunityDragon
@@ -46,7 +46,7 @@ export async function getChampionData() {
 }
 
 // Base URLs for different icon sets
-export const STAT_ICONS_BASE_URL = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/ux/fonts/texticons/lol/statsicon/';
+export const STAT_ICONS_BASE_URL = 'https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/default/assets/ux/fonts/texticons/lol/statsicon/';
 export const TIER_ICONS_BASE_URL = 'https://raw.communitydragon.org/pbe/game/assets/ux/cherry/augments/statanvil/';
 export const GAMEPLAY_ICONS_BASE_URL = 'https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/default/assets/ux/fonts/texticons/lol/gameplay/';
 

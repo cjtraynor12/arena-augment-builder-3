@@ -1541,7 +1541,7 @@ function extractItemCode(filename) {
 
 // Fetch arena item descriptions from stringtable and enhance arena items data
 async function fetchArenaItemDescriptions() {
-    const stringtableUrl = "https://raw.communitydragon.org/latest/game/en_us/data/menu/en_us/lol.stringtable.json";
+    const stringtableUrl = "https://raw.communitydragon.org/pbe/game/en_us/data/menu/en_us/lol.stringtable.json";
 
     try {
         console.log("Fetching arena item descriptions from stringtable...");
