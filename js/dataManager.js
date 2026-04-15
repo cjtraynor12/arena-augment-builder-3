@@ -4,7 +4,10 @@ import { calculationEngine } from './calculationEngine.js';
 export const arenaJsonDataUrl = "https://raw.communitydragon.org/pbe/cdragon/arena/";
 export const championJsonDataUrl = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json";
 export const communityDragonBaseUrl = "https://raw.communitydragon.org/pbe/game/";
-export const baseSquarePortraitPath = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/";
+// Use /pbe/ instead of /latest/ — the latter started 404-ing for some champion
+// IDs (e.g. 238 Zed) while /pbe/ consistently has them. Other CommunityDragon
+// paths in this file already point at /pbe/ so this matches.
+export const baseSquarePortraitPath = "https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/";
 
 export const augmentFrameBaseUrl = communityDragonBaseUrl + "assets/ux/cherry/augments/augmentselection/";
 export const levelStarBaseUrl = communityDragonBaseUrl + "assets/ux/cherry/augments/levelup/";

@@ -1702,12 +1702,15 @@ body {
 }
 
 .match-ref-aug .insert-reference-btn {
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-    line-height: 16px;
+    /* Big hover target — easier to hit the "+" without misclicking the
+       card and reseting the builder to this augment. */
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    line-height: 28px;
     bottom: 2px;
     right: 2px;
+    border-radius: 6px;
 }
 
 .match-ref-aug-unknown {
