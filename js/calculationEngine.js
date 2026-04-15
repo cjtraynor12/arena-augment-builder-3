@@ -107,7 +107,7 @@ class CalculationEngine {
         // `[Vengeance effect]` fallback.
         processedDescription = this.processSummaryPlaceholders(processedDescription, augment);
         processedDescription = this.processCalculationPlaceholders(processedDescription, augment, starIndex);
-        processedDescription = this.processSpellPlaceholders(processedDescription, augment);
+        processedDescription = this.processSpellPlaceholders(processedDescription, augment, starIndex);
 
         return processedDescription;
     }
@@ -154,10 +154,11 @@ class CalculationEngine {
         return processedDescription;
     }
 
-    processSpellPlaceholders(description, augment) {
+    processSpellPlaceholders(description, augment, starIndex) {
         const spellMatches = description.match(/@spell\.([^:]+):([^@*]+)(\*[^@]*)?@/g);
         if (!spellMatches) return description;
 
+        const dataValues = augment.dataValues || {};
         let processedDescription = description;
 
         for (const match of spellMatches) {
@@ -173,6 +174,20 @@ class CalculationEngine {
                 multiplier = propertyWithMultiplier.substring(multiplierIndex);
             }
 
+            // Preferred path: the spell property name is also a dataValue on
+            // the augment (true for every current case — Homeguard's
+            // MovementSpeed / DisableCooldown, Shadow Runner's MSAmount /
+            // BuffDuration). Compute the real number instead of emitting a
+            // `[Move Speed]` text placeholder.
+            if (Object.prototype.hasOwnProperty.call(dataValues, property)) {
+                const resolvedDv = pickDisplayDataValue(property, dataValues);
+                const formatted = this.processDataValue(resolvedDv, multiplier || null, dataValues, starIndex);
+                processedDescription = processedDescription.replaceAll(match, formatted);
+                continue;
+            }
+
+            // Fallback: unknown property — keep the old human-readable text
+            // placeholder so the render doesn't break.
             const propertyDescription = this.spellPropertyMappings[property] || property;
             let replacement = `[${propertyDescription}]`;
 
