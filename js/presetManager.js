@@ -191,11 +191,7 @@ export class PresetManager {
     }
 
     updateUIFromSettings(settings) {
-        const titleFontInput = document.getElementById('titleFontInput');
-        if (titleFontInput) titleFontInput.value = settings.titleFont;
-
-        const descriptionFontInput = document.getElementById('descriptionFontInput');
-        if (descriptionFontInput) descriptionFontInput.value = settings.descriptionFont;
+        // Font UI is synced by syncFontUI() called from selectPreset in app.js
 
         const sliderMappings = {
             iconYOffset: 'iconYOffset',

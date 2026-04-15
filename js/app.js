@@ -162,33 +162,29 @@ function showToast(message, isError = false) {
 }
 
 // ===== SCREEN MANAGEMENT =====
-function switchScreen(screenName) {
-    // Hide all screens
-    document.getElementById('mainScreen').style.display = 'none';
-    document.getElementById('advancedScreen').style.display = 'none';
-    document.getElementById('colorsScreen').style.display = 'none';
-    document.getElementById('iconsScreen').style.display = 'none';
+// Collapsible sections: lazy-init icons and colors on first open
+function initCollapsibleListeners() {
+    let iconsInitialized = false;
+    let colorsInitialized = false;
 
-    // Show selected screen
-    document.getElementById(screenName + 'Screen').style.display = 'block';
-
-    // Update button states
-    document.querySelectorAll('.screen-btn').forEach(btn => {
-        btn.style.background = '#f8f9fa';
-        btn.style.color = '#333';
-    });
-
-    document.getElementById(screenName + 'ScreenBtn').style.background = '#007bff';
-    document.getElementById(screenName + 'ScreenBtn').style.color = 'white';
-
-    // Initialize color table if switching to colors screen
-    if (screenName === 'colors') {
-        populateColorTable();
+    const iconsEl = document.getElementById('iconsCollapsible');
+    if (iconsEl) {
+        iconsEl.addEventListener('toggle', () => {
+            if (iconsEl.open && !iconsInitialized) {
+                populateIconGrid();
+                iconsInitialized = true;
+            }
+        });
     }
 
-    // Initialize icon grid if switching to icons screen
-    if (screenName === 'icons') {
-        populateIconGrid();
+    const colorsEl = document.getElementById('colorsCollapsible');
+    if (colorsEl) {
+        colorsEl.addEventListener('toggle', () => {
+            if (colorsEl.open && !colorsInitialized) {
+                populateColorTable();
+                colorsInitialized = true;
+            }
+        });
     }
 }
 
@@ -499,6 +495,7 @@ function populatePresetDropdown() {
 
 function selectPreset(presetName) {
     if (presetManager.applyPreset(presetName, settings)) {
+        syncFontUI();
         mergeAugmentImages();
     }
 }
@@ -718,14 +715,90 @@ function switchIconTab(tab) {
     }
 }
 
+// ===== Font Parsing/Building =====
+function parseFontString(fontStr) {
+    const match = fontStr.match(/(\d+)px/);
+    const size = match ? parseInt(match[1]) : 14;
+    const rest = fontStr.replace(/\d+px\s*/, '').trim();
+    return { size, rest };
+}
+
+function buildFontString(size, rest) {
+    const keywords = ['normal', 'italic', 'oblique', 'bold', 'bolder', 'lighter', 'small-caps'];
+    const words = rest.split(/\s+/);
+    let prefixParts = [];
+    let familyParts = [];
+    let foundFamily = false;
+    for (const word of words) {
+        if (!foundFamily && (keywords.includes(word.toLowerCase()) || /^\d{3}$/.test(word))) {
+            prefixParts.push(word);
+        } else {
+            foundFamily = true;
+            familyParts.push(word);
+        }
+    }
+    const prefix = prefixParts.join(' ');
+    const family = familyParts.join(' ') || rest;
+    return (prefix ? prefix + ' ' : '') + size + 'px ' + family;
+}
+
+function syncFontUI() {
+    const titleParsed = parseFontString(settings.titleFont);
+    const descParsed = parseFontString(settings.descriptionFont);
+
+    const titleSizeSlider = document.getElementById('titleFontSize');
+    const titleSizeOutput = document.querySelector('output[for="titleFontSize"]');
+    const titleFamilyInput = document.getElementById('titleFontInput');
+
+    const descSizeSlider = document.getElementById('descFontSize');
+    const descSizeOutput = document.querySelector('output[for="descFontSize"]');
+    const descFamilyInput = document.getElementById('descriptionFontInput');
+
+    if (titleSizeSlider) titleSizeSlider.value = titleParsed.size;
+    if (titleSizeOutput) titleSizeOutput.value = titleParsed.size;
+    if (titleFamilyInput) titleFamilyInput.value = titleParsed.rest;
+
+    if (descSizeSlider) descSizeSlider.value = descParsed.size;
+    if (descSizeOutput) descSizeOutput.value = descParsed.size;
+    if (descFamilyInput) descFamilyInput.value = descParsed.rest;
+}
+
+function updateTitleFontSize(newSize) {
+    const parsed = parseFontString(settings.titleFont);
+    settings.titleFont = buildFontString(newSize, parsed.rest);
+    const output = document.querySelector('output[for="titleFontSize"]');
+    if (output) output.value = newSize;
+    mergeAugmentImages();
+}
+
+function updateDescFontSize(newSize) {
+    const parsed = parseFontString(settings.descriptionFont);
+    settings.descriptionFont = buildFontString(newSize, parsed.rest);
+    const output = document.querySelector('output[for="descFontSize"]');
+    if (output) output.value = newSize;
+    mergeAugmentImages();
+}
+
+function updateTitleFontFamily(rest) {
+    const parsed = parseFontString(settings.titleFont);
+    settings.titleFont = buildFontString(parsed.size, rest);
+    mergeAugmentImages();
+}
+
+function updateDescFontFamily(rest) {
+    const parsed = parseFontString(settings.descriptionFont);
+    settings.descriptionFont = buildFontString(parsed.size, rest);
+    mergeAugmentImages();
+}
+
 function setDefaultTitleFont() {
     settings['titleFont'] = "bold 24px LolBeautfortBold";
-    document.getElementById("titleFontInput").value = "bold 24px LolBeautfortBold";
+    syncFontUI();
 }
 
 function setDefaultDescriptionFont() {
     settings['descriptionFont'] = "14px LolBeautfort";
-    document.getElementById("descriptionFontInput").value = "14px LolBeautfort";
+    syncFontUI();
 }
 
 function createAugmentButton(augmentData) {
@@ -993,8 +1066,7 @@ async function setSelectedCustomAugment(index) {
     // Update UI elements
     document.getElementById('titleInput').value = settings.augmentTitle;
     document.getElementById('descriptionInput').value = settings.augmentDescription;
-    document.getElementById('titleFontInput').value = settings.titleFont;
-    document.getElementById('descriptionFontInput').value = settings.descriptionFont;
+    syncFontUI();
     document.getElementById('iconXOffset').value = settings.iconXOffset;
     document.getElementById('iconYOffset').value = settings.iconYOffset;
     document.getElementById('iconSize').value = settings.iconSize;
@@ -1569,6 +1641,7 @@ async function init() {
     setRedrawCallback(mergeAugmentImages);
 
     initializeDragDrop();
+    initCollapsibleListeners();
 
     // Initialize color table
     loadColorTable();
@@ -1597,6 +1670,7 @@ async function init() {
     // Load current preset instead of individual settings
     const currentPresetName = presetManager.getCurrentPresetName();
     presetManager.applyPreset(currentPresetName, settings);
+    syncFontUI();
 
     let p1 = getArenaJson();
     let p2 = getChampionJson();
@@ -1627,10 +1701,13 @@ window.updateItemSearch = updateItemSearch;
 window.updateArenaItemSearch = updateArenaItemSearch;
 window.switchAugmentTab = switchAugmentTab;
 window.switchIconTab = switchIconTab;
-window.switchScreen = switchScreen;
 window.filterIcons = filterIcons;
 window.clearIconSearch = clearIconSearch;
 window.updateCanvasVariable = updateCanvasVariable;
+window.updateTitleFontSize = updateTitleFontSize;
+window.updateDescFontSize = updateDescFontSize;
+window.updateTitleFontFamily = updateTitleFontFamily;
+window.updateDescFontFamily = updateDescFontFamily;
 window.updateFrameVariable = updateFrameVariable;
 window.updateModifierVariable = updateModifierVariable;
 window.clearCustomFrame = clearCustomFrame;
