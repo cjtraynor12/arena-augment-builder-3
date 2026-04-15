@@ -41,6 +41,14 @@ body {
     cursor: pointer;
     font-size: 12px;
     color: white;
+    /* Neutral fallback so `.btn` alone (e.g. Copy JSON / Load Match) isn't
+       white-on-white. Color variants below override this. */
+    background-color: #555;
+}
+
+.btn:not([class*="btn-"]):hover,
+.btn.btn-sm:not(.btn-primary):not(.btn-success):not(.btn-danger):hover {
+    background-color: #666;
 }
 
 .btn-success { background-color: var(--success); }
@@ -384,67 +392,87 @@ body {
     font-size: 13px;
 }
 
-#descriptionInput,
-#titleInput {
-    width: 100%;
-    padding: 6px 8px;
-    border-radius: 4px;
-    border: 2px solid transparent;
-    font-family: inherit;
-    font-size: 13px;
-    resize: vertical;
-    transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-#titleInput {
-    height: 30px;
-}
-
-#descriptionInput {
-    height: 150px;
-}
-
-/* ===== Text Input Wrapper (for ghost cursor + active highlight) ===== */
+/* ===== Text Input Wrapper (CodeMirror-backed editors) ===== */
 .text-input-wrapper {
     position: relative;
+    width: 100%;
 }
 
-.text-input-wrapper.active-target #descriptionInput,
-.text-input-wrapper.active-target #titleInput {
+/* CodeMirror mounts its editor as a .cm-editor inside the wrapper. The
+   wrapper itself is transparent — the editor's own background shows through. */
+.code-editor-wrapper {
+    border-radius: 4px;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    overflow: hidden;
+}
+
+.code-editor-wrapper.active-target {
     border-color: var(--accent);
     box-shadow: 0 0 6px rgba(0, 123, 255, 0.45);
 }
 
-.ghost-cursor-mirror {
-    position: absolute;
-    top: 0;
-    left: 0;
-    visibility: hidden;
-    pointer-events: none;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    overflow: hidden;
-    color: transparent;
+/* Let the description editor grow to the old ~150px baseline; title is
+   single-line and shrinks to ~30px. CM's internal theme also enforces
+   min-heights, so these are floors, not caps. */
+#descriptionInput .cm-editor { min-height: 150px; }
+#titleInput .cm-editor { min-height: 30px; }
+#titleInput .cm-scroller { white-space: pre; }
+
+/* Force the description to wrap even on long unbreakable tokens (e.g.
+   `<scaleAbilityHaste>Ability Haste</scaleAbilityHaste>`) so the editor
+   never grows horizontally beyond its container.
+   Two-part fix:
+   1. `min-width: 0` along the flex chain (form-row / form-controls / card-panel)
+      — default `min-width: auto` on flex items equals content size, which lets
+      the description's long tokens push the whole column wider. `min-width: 0`
+      breaks that and lets these containers shrink to their allotted space.
+   2. `word-break / overflow-wrap` on `.cm-content` and `.cm-line` — once the
+      container width is bounded, these force wrapping inside long tokens
+      since EditorView.lineWrapping only breaks at spaces. */
+.form-row, .form-controls, .card-panel { min-width: 0; }
+/* `#descriptionInput` sits in a flex chain where the ancestor `.card-panel`
+   is sized to `max-content` (it has `flex-shrink: 0` so it can't be squished
+   by its sibling controls-panel). A long unbreakable token in the editor
+   therefore pushes the whole column wider than the viewport. Containing the
+   description's own inline-size breaks that feedback loop: its width is
+   decided by its parent, not by its content. */
+#descriptionInput {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    contain: inline-size;
+}
+#descriptionInput .cm-editor,
+#descriptionInput .cm-scroller {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+#descriptionInput .cm-content,
+#descriptionInput .cm-line {
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
-.ghost-cursor-marker {
-    position: absolute;
-    width: 2px;
-    background-color: var(--accent);
-    pointer-events: none;
-    display: none;
-    border-radius: 1px;
-    box-shadow: 0 0 4px rgba(0, 123, 255, 0.8);
-    animation: ghost-cursor-blink 1s steps(2, start) infinite;
+/* Hide the autocomplete popup's tooltip arrow so it sits flush against the
+   editor, and pin its max-height to prevent it from stretching the page. */
+.cm-tooltip-autocomplete {
+    max-height: 220px;
+}
+.cm-tooltip-autocomplete > ul {
+    max-height: 200px !important;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
 }
 
-.text-input-wrapper.active-target .ghost-cursor-marker {
-    display: block;
-}
-
-@keyframes ghost-cursor-blink {
-    to { opacity: 0.2; }
+/* Shared tooltip layer — a 0×0 fixed-position div in <body> (see
+   getTooltipLayer in js/codeEditor.js). CodeMirror mounts its per-view
+   tooltip host inside this layer. The layer itself takes no layout space
+   and has pointer-events: none; the tooltips inside re-enable pointer
+   events and get a safe z-index so they always paint above page chrome. */
+#cm-tooltip-layer .cm-tooltip {
+    pointer-events: auto;
+    z-index: 10001;
 }
 
 /* ===== Action Row (Save + Presets) ===== */
@@ -1178,6 +1206,23 @@ body {
     gap: 8px;
     align-items: center;
     margin-top: 4px;
+}
+
+/* Match-ID lookup row — label on its own line, then input + button inline.
+   The parent `.timeline-row` is flex-column; we use `display: grid` on the
+   row itself so label spans the full width and input/button share line 2. */
+.timeline-lookup-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 8px;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+
+.timeline-lookup-row label {
+    grid-column: 1 / -1;
 }
 
 .timeline-endpoint-group {

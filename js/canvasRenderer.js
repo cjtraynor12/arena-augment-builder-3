@@ -3,6 +3,7 @@ import { settings } from "./state.js";
 import {
   imageKeywordMap,
   getStatIconUrl,
+  resolveImageKeyword,
   inlineImageUrlMap,
   levelStarBaseUrl,
 } from "./dataManager.js";
@@ -326,6 +327,18 @@ export const colorTable = {
   silver: "#B0B0B0",
   gold: "#C9AA71",
   prismatic: "#E4B4FF",
+
+  // Tags added in the 2026 Arena text update — previously fell through to
+  // white. Colors are best-effort matches to related existing entries; tweak
+  // to taste.
+  armorPen: "#C89B3C",        // physical-penetration, same family as armor
+  magicPen: "#9966CC",        // magic-penetration, same family as magicresistance
+  attention: "#F0E6D2",       // emphasis (e.g. "Ultimate"), matches keywordMajor
+  keyword: "#F0E6D2",         // inline keyword emphasis
+  lifesteal: "#DC143C",       // lowercase alias of lifeSteal
+  scaleAbilityHaste: "#A1CFE4", // ability-haste cyan
+  scaleTenacity: "#CDBE91",   // tenacity warm cream
+  stealth: "#966db0",         // alias of keywordStealth
 };
 
 // Image cache for inline images
@@ -429,8 +442,12 @@ function writeCharacters(
             }
 
             let imageUrl;
-            if (imageKeywordMap[keyword]) {
-              imageUrl = getStatIconUrl(keyword);
+            // Case-insensitive resolve so `<imgOnHit>` works the same as
+            // `<imgonhit>` (Riot uses mixed casing; our map keys are lowercase).
+            const canonicalKeyword = resolveImageKeyword(keyword);
+            if (canonicalKeyword) {
+              imageUrl = getStatIconUrl(canonicalKeyword);
+              keyword = canonicalKeyword; // use canonical downstream
             } else if (inlineImageUrlMap[keyword]) {
               imageUrl = inlineImageUrlMap[keyword];
             }

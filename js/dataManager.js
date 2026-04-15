@@ -72,6 +72,7 @@ const statIconFiles = {
     'scaleLS': 'scalels.png',
     'scaleMana': 'scalemana.png',
     'scaleManaRegen': 'scalemanaregen.png',
+    'miniAdaptiveForce': 'miniadaptiveforce.png',
     'scaleMPen': 'scalempen.png',
     'scaleMR': 'scalemr.png',
     'scaleMS': 'scalems.png',
@@ -184,22 +185,50 @@ export function getTierKeyword(rarity, preferredFrame) {
     return 'gold';
 }
 
-// Helper function to get full URL for a stat icon
-export function getStatIconUrl(keyword) {
-    return imageKeywordMap[keyword];
+// Lowercased shadow map: lowercased key -> canonical (original-case) key.
+// Built once so `%i:OnHit%` / `%i:Reroll%` / `%i:goldCoins%` can resolve to
+// their canonical-case entries in imageKeywordMap, even though Riot's data
+// uses varying casing and JS object lookup is case-sensitive.
+const imageKeywordLowerIndex = {};
+for (const k of Object.keys(imageKeywordMap)) {
+    imageKeywordLowerIndex[k.toLowerCase()] = k;
 }
 
-export function populateDescriptionVariables(augment) {
+// Resolve a user-supplied keyword (any case) to the canonical key in
+// imageKeywordMap. Returns the canonical key, or undefined if unknown.
+export function resolveImageKeyword(keyword) {
+    if (keyword == null) return undefined;
+    if (imageKeywordMap[keyword]) return keyword;
+    return imageKeywordLowerIndex[keyword.toLowerCase()];
+}
+
+// Helper function to get full URL for a stat icon — case-insensitive.
+export function getStatIconUrl(keyword) {
+    const canonical = resolveImageKeyword(keyword);
+    return canonical ? imageKeywordMap[canonical] : undefined;
+}
+
+// `starIndex` (optional, 1–3) forces single-value rendering at that index
+// across every dataValues array — see formatArrayValue in calculationEngine.
+// Omit (or pass undefined) for the legacy min-max range behavior used in the
+// picker grid / preview. The mapping 1★→1, 2★→2, 3★→3 is set by the Augment
+// Levels slider in app.js (settings.levelCurrent); values outside [1, 3] are
+// treated as "no specific star" and fall back to the range.
+export function populateDescriptionVariables(augment, starIndex) {
     let description = augment['desc'];
     const dataValues = augment['dataValues'] || {};
 
     console.log('Original description:', description); // Debug log
 
-    // FIRST: Handle %i:keyword% patterns for inline images BEFORE other processing
+    // FIRST: Handle %i:keyword% patterns for inline images BEFORE other processing.
+    // Normalize to the canonical (case-sensitive) key so downstream render logic
+    // can look it up directly. Riot uses inconsistent casing in the source data
+    // (e.g. `%i:OnHit%`, `%i:goldCoins%`) whereas our map keys are lowercase.
     description = description.replaceAll(/%i:([^%]+)%/gi, (match, keyword) => {
         console.log('Converting image pattern:', match, 'keyword:', keyword); // Debug log
-        if (imageKeywordMap[keyword]) {
-            const imgTag = `<img${keyword}>`;
+        const canonical = resolveImageKeyword(keyword);
+        if (canonical) {
+            const imgTag = `<img${canonical}>`;
             console.log('Created custom img tag:', imgTag); // Debug log
             return imgTag;
         }
@@ -210,7 +239,7 @@ export function populateDescriptionVariables(augment) {
     console.log('After image conversion:', description); // Debug log
 
     // Then handle complex calculations and special placeholders using the calculation engine
-    description = calculationEngine.processCalculations(description, augment);
+    description = calculationEngine.processCalculations(description, augment, starIndex);
 
     // Then handle simple @DataValue@ and @DataValue*multiplier@ placeholders
     // Use regex to properly match placeholders: @VariableName@ or @VariableName*multiplier@
@@ -238,7 +267,7 @@ export function populateDescriptionVariables(augment) {
 
         // Check if this is a dataValue
         if (dataValues.hasOwnProperty(isolatedVarName)) {
-            const processedValue = calculationEngine.processDataValue(isolatedVarName, multiplier, dataValues);
+            const processedValue = calculationEngine.processDataValue(isolatedVarName, multiplier, dataValues, starIndex);
             console.log(`Replacing "${varName}" with "${processedValue}"`); // Debug log
             description = description.replace(varName, processedValue);
         } else {
@@ -253,6 +282,12 @@ export function populateDescriptionVariables(augment) {
 
     // Handle any remaining runtime placeholders (@f1@, @f2@, etc.)
     modifiedDescription = modifiedDescription.replaceAll(/@f(\d+)@/g, '[runtime value]');
+
+    // Collapse accidental double '%' that can emerge when a calculation
+    // already emits '%' and the desc template has a literal '%' after the
+    // placeholder (e.g. `@CritGranted@%` where CritGranted's calc output
+    // is itself a percent expression).
+    modifiedDescription = modifiedDescription.replaceAll(/%%+/g, '%');
 
     console.log('Final processed description:', modifiedDescription); // Debug log
     return modifiedDescription;

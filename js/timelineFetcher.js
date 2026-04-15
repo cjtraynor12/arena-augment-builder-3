@@ -133,6 +133,23 @@ const QUEUES = [
     { value: '',     label: 'All queues' },
 ];
 
+// Platform prefix in a match ID → regional routing value for match-v5.
+// Match IDs look like "NA1_5123456789" — the prefix is the platform. The
+// match-v5 endpoint wants the regional cluster (americas/europe/asia/sea),
+// so we map from platform to cluster here.
+const PLATFORM_TO_REGION = {
+    NA1: 'americas', BR1: 'americas', LA1: 'americas', LA2: 'americas',
+    EUW1: 'europe',  EUN1: 'europe',  TR1: 'europe',   RU: 'europe', ME1: 'europe',
+    KR: 'asia',      JP1: 'asia',
+    OC1: 'sea',      PH2: 'sea',      SG2: 'sea',      TH2: 'sea',  TW2: 'sea', VN2: 'sea',
+};
+
+function regionForMatchId(matchId) {
+    const m = String(matchId || '').match(/^([A-Z0-9]+)_/i);
+    if (!m) return null;
+    return PLATFORM_TO_REGION[m[1].toUpperCase()] || null;
+}
+
 function loadPrefs() {
     try {
         return JSON.parse(localStorage.getItem(LS_KEY)) || {};
@@ -396,6 +413,30 @@ async function findMatches() {
     }
 }
 
+async function lookupMatchById() {
+    const input = el('timelineMatchIdInput');
+    const raw = (input?.value || '').trim();
+    if (!raw) { setStatus('Enter a match ID (e.g. NA1_5123456789).', 'error'); return; }
+    if (!getApiKey()) { setStatus('API key is required.', 'error'); return; }
+
+    // Auto-align the region select to the match ID's platform prefix so the
+    // fetch goes to the right cluster. User can still override afterward,
+    // but a wrong region → 404, so match the prefix first.
+    const detected = regionForMatchId(raw);
+    const regionSel = el('timelineRegion');
+    if (detected && regionSel && regionSel.value !== detected) {
+        regionSel.value = detected;
+    } else if (!detected) {
+        setStatus(`Unknown platform prefix in "${raw}" — using region "${getRegion()}". Match IDs usually start with NA1_, EUW1_, KR_, etc.`, 'warn');
+    }
+
+    // Clear any existing match list UI so the summary takes center stage.
+    const matchList = el('timelineMatchList');
+    if (matchList) matchList.innerHTML = '';
+
+    await fetchTimelineForMatch(raw);
+}
+
 async function fetchTimelineForMatch(matchId) {
     const region = getRegion();
     setOutput(null);
@@ -483,6 +524,10 @@ function handleKeydown(e) {
         e.preventDefault();
         findMatches();
     }
+    if (e.key === 'Enter' && e.target.matches('#timelineMatchIdInput')) {
+        e.preventDefault();
+        lookupMatchById();
+    }
 }
 
 export function initTimelineFetcher() {
@@ -499,3 +544,4 @@ window.openTimelineOverlay = openTimelineOverlay;
 window.closeTimelineOverlay = closeTimelineOverlay;
 window.findMatches = findMatches;
 window.copyTimelineJson = copyTimelineJson;
+window.lookupMatchById = lookupMatchById;

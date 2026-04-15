@@ -13,6 +13,7 @@ import { aram_mayhem_augments } from './data/aramAugments.js';
 import { presetManager } from './presetManager.js';
 import { initTimelineFetcher } from './timelineFetcher.js';
 import { initMatchReference, refreshMatchReference } from './matchReference.js';
+import { createHighlightedEditor } from './codeEditor.js';
 
 // ===== DRAG AND DROP MODULE =====
 function initializeDragDrop() {
@@ -273,106 +274,53 @@ function clearIconSearch() {
     filterIcons('');
 }
 
-// ===== ACTIVE TEXT FIELD TRACKING + GHOST CURSOR =====
-// Tracks which textarea (titleInput / descriptionInput) was last interacted with,
-// so icon insertions land in the right place. Also paints a "ghost" caret marker
-// on the active field even when focus has moved elsewhere (e.g. to the icon search).
+// ===== ACTIVE TEXT FIELD TRACKING (CodeMirror-backed) =====
+// Tracks which editor (titleInput / descriptionInput) was last interacted with,
+// so icon insertions land in the right place. The editor keeps drawing its own
+// cursor when blurred, so no ghost-cursor hack is needed.
 const TEXT_FIELDS = {
     titleInput: 'augmentTitle',
     descriptionInput: 'augmentDescription'
 };
+const editors = {};          // { titleInput: EditorHandle, descriptionInput: EditorHandle }
 let activeTextField = 'descriptionInput';
 
-function setActiveTextField(textareaId) {
-    if (!TEXT_FIELDS[textareaId]) return;
-    activeTextField = textareaId;
-    Object.keys(TEXT_FIELDS).forEach(id => {
-        const ta = document.getElementById(id);
-        if (!ta) return;
-        const wrapper = ta.parentElement;
-        if (wrapper && wrapper.classList.contains('text-input-wrapper')) {
-            wrapper.classList.toggle('active-target', id === textareaId);
-        }
+function setActiveTextField(id) {
+    if (!TEXT_FIELDS[id]) return;
+    activeTextField = id;
+    Object.keys(TEXT_FIELDS).forEach(otherId => {
+        const wrapper = document.getElementById(otherId);
+        if (wrapper) wrapper.classList.toggle('active-target', otherId === id);
     });
-    updateGhostCursor(textareaId);
-}
-
-// Compute caret pixel coords by mirroring the textarea's wrapped text in a hidden div.
-function updateGhostCursor(textareaId) {
-    const textarea = document.getElementById(textareaId);
-    if (!textarea) return;
-    const wrapper = textarea.parentElement;
-    if (!wrapper) return;
-    const mirror = wrapper.querySelector('.ghost-cursor-mirror');
-    const marker = wrapper.querySelector('.ghost-cursor-marker');
-    if (!mirror || !marker) return;
-
-    const cs = window.getComputedStyle(textarea);
-    const propsToCopy = [
-        'boxSizing', 'width', 'height',
-        'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-        'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-        'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
-        'lineHeight', 'fontFamily', 'textAlign', 'textTransform', 'textIndent',
-        'letterSpacing', 'wordSpacing', 'tabSize'
-    ];
-    propsToCopy.forEach(p => { mirror.style[p] = cs[p]; });
-    mirror.style.position = 'absolute';
-    mirror.style.top = textarea.offsetTop + 'px';
-    mirror.style.left = textarea.offsetLeft + 'px';
-    mirror.style.whiteSpace = 'pre-wrap';
-    mirror.style.wordWrap = 'break-word';
-    mirror.style.overflowWrap = 'break-word';
-    mirror.style.overflow = 'hidden';
-
-    const pos = textarea.selectionStart;
-    const value = textarea.value;
-    // Use a non-breaking-space sentinel so the span has measurable bounds even at end-of-text.
-    mirror.textContent = value.substring(0, pos);
-    const span = document.createElement('span');
-    span.textContent = value.substring(pos) || '\u200b';
-    mirror.appendChild(span);
-
-    const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
-    marker.style.top = (textarea.offsetTop + span.offsetTop - textarea.scrollTop) + 'px';
-    marker.style.left = (textarea.offsetLeft + span.offsetLeft - textarea.scrollLeft) + 'px';
-    marker.style.height = lineHeight + 'px';
 }
 
 function initTextFieldTracking() {
     Object.keys(TEXT_FIELDS).forEach(id => {
-        const ta = document.getElementById(id);
-        if (!ta) return;
-        const update = () => setActiveTextField(id);
-        const refreshIfActive = () => {
-            if (activeTextField === id) updateGhostCursor(id);
-        };
-        ta.addEventListener('focus', update);
-        ta.addEventListener('click', update);
-        ta.addEventListener('keyup', update);
-        ta.addEventListener('select', update);
-        ta.addEventListener('input', refreshIfActive);
-        ta.addEventListener('scroll', refreshIfActive);
+        const mount = document.getElementById(id);
+        if (!mount) return;
+        const settingKey = TEXT_FIELDS[id];
+        const singleLine = id === 'titleInput';
+        const handle = createHighlightedEditor(mount, {
+            value: settings[settingKey] || '',
+            singleLine,
+            onChange: (value) => updateCanvasVariable(value, settingKey)
+        });
+        editors[id] = handle;
+        handle.onFocus(() => setActiveTextField(id));
     });
-    // Recalculate ghost on window resize (text wrapping may shift)
-    window.addEventListener('resize', () => updateGhostCursor(activeTextField));
     setActiveTextField('descriptionInput');
 }
 
-function insertAtActiveCursor(insertText, opts = {}) {
-    const textarea = document.getElementById(activeTextField);
-    if (!textarea) return;
-    const settingKey = TEXT_FIELDS[activeTextField];
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const newText = text.substring(0, start) + insertText + text.substring(end);
-    textarea.value = newText;
-    const newCursorPos = start + insertText.length;
-    textarea.setSelectionRange(newCursorPos, newCursorPos);
-    if (opts.focus !== false) textarea.focus();
-    updateCanvasVariable(newText, settingKey);
-    updateGhostCursor(activeTextField);
+function setEditorValue(id, value) {
+    const handle = editors[id];
+    if (handle) handle.setValue(value ?? '');
+}
+
+function insertAtActiveCursor(insertText) {
+    const handle = editors[activeTextField];
+    if (!handle) return;
+    handle.insertAtCursor(insertText);
+    // onChange fires via the update listener, which keeps settings + canvas in sync.
 }
 
 function insertIconAtCursor(keyword) {
@@ -989,6 +937,53 @@ function filterChampions() {
     }
 }
 
+// Star-level metadata derived from the raw augment JSON.
+// * `MaxLevel` in dataValues is a 7-element array of identical numbers (1, 2,
+//   or 3) indicating how many star tiers the augment has. Missing ⇒ treat as
+//   1 (no upgrade path). See investigation notes in calculationEngine.js.
+// * Team-size-scaling augments (Vengeance, Chauffeur, Spirit Link, Parasitic
+//   Relationship) reuse the 7-index arrays for team sizes rather than star
+//   tiers, so we disable the star UI for them even if MaxLevel > 1.
+function getAugmentStarConfig(augment) {
+    if (!augment) return { maxLevel: 1, usesStars: false };
+    const dv = augment.dataValues || {};
+    const rawMaxLevel = Array.isArray(dv.MaxLevel) ? dv.MaxLevel[0] : undefined;
+    const maxLevel = (rawMaxLevel === 2 || rawMaxLevel === 3) ? rawMaxLevel : 1;
+    const isTeamSize = !!(augment.calculations && augment.calculations.TeamSize);
+    return { maxLevel, usesStars: maxLevel > 1 && !isTeamSize };
+}
+
+// The single source of truth for "which star are we rendering?" — returns
+// 1, 2, or 3 when the Augment Levels panel is on (mapping directly to the
+// index into Riot's 7-element dataValues arrays), or `undefined` when the
+// user has the level panel off, meaning the description should fall back
+// to the min-max range preview.
+function getDescriptionStarIndex() {
+    if (settings.levelMode !== '2' && settings.levelMode !== '3') return undefined;
+    const cap = parseInt(settings.levelMode, 10);
+    const n = parseInt(settings.levelCurrent, 10);
+    if (!Number.isFinite(n) || n < 1) return 1;
+    if (n > cap) return cap;
+    return n;
+}
+
+// Apply the auto-detected star config to the Augment Levels panel: turn it
+// on/off, sync the mode/tier toggle buttons, reset the Filled Stars slider
+// to 1, and update its max to match the augment's cap.
+function applyAugmentStarConfig(augment) {
+    const { maxLevel, usesStars } = getAugmentStarConfig(augment);
+    settings.levelMode = usesStars ? String(maxLevel) : 'off';
+    settings.levelCurrent = 1;
+    syncLevelButtonGroup('levelMode', settings.levelMode);
+    const slider = document.getElementById('levelCurrent');
+    if (slider) {
+        slider.max = String(Math.max(2, maxLevel));
+        slider.value = '1';
+        const output = slider.nextElementSibling;
+        if (output && output.tagName === 'OUTPUT') output.value = '1';
+    }
+}
+
 function setSelectedAugment(id) {
     const currentArenaJsonData = arenaJsonData;
     settings['selectedAugment'] = currentArenaJsonData.filter((e) => e['id'] === id)[0];
@@ -1001,15 +996,27 @@ function setSelectedAugment(id) {
     switch (rarity) {
         case 0:
             settings['selectedFrame'] = borderImages['augmentcard_frame_silver'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg'];
             break;
         case 1:
             settings['selectedFrame'] = borderImages['augmentcard_frame_gold'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg'];
             break;
         case 2:
             settings['selectedFrame'] = borderImages['augmentcard_frame_prismatic'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg'];
+            break;
+        case 4:
+            // Rarity 4 is the Guest of Honor (goh) tier — a distinct themed
+            // set beyond silver/gold/prismatic. It uses its own frame and
+            // background. Users can still pick a tier-specific goh variant
+            // (Gold/Prismatic/Silver) from the Frame dropdown.
+            settings['selectedFrame'] = borderImages['augmentcard_frame_goh_arena_2026_s2'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg_goh_arena_2026_s2'];
             break;
         default:
             settings['selectedFrame'] = borderImages['augmentcard_bg'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg'];
     }
     settings['shinyFrame'] = false;
 
@@ -1017,10 +1024,26 @@ function setSelectedAugment(id) {
     settings['levelTier'] = getTierKeyword(rarity);
     syncLevelButtonGroup('levelTier', settings['levelTier']);
 
+    // Auto-enable the Augment Levels panel based on the augment's MaxLevel
+    // (2★ / 3★), and reset Filled Stars to 1. Pulls levelMode + slider into
+    // sync with the newly selected augment so the description rendered below
+    // reflects the 1-star numbers, not a min-max range.
+    applyAugmentStarConfig(settings['selectedAugment']);
+
+    // Reflect the auto-picked frame + background in their dropdowns so the
+    // user sees which preset is active (and can override if they want).
+    const frameSel = document.getElementById('customFrame');
+    if (frameSel) frameSel.value = frameFilenameToKey(settings['selectedFrame']);
+    const bgSel = document.getElementById('backgroundSelect');
+    if (bgSel) bgSel.value = settings['selectedBackground'];
+
     settings['augmentTitle'] = settings['selectedAugment']['name'];
-    document.getElementById('titleInput').value = settings['augmentTitle'];
-    settings['augmentDescription'] = populateDescriptionVariables(settings['selectedAugment']);
-    document.getElementById('descriptionInput').value = settings['augmentDescription'];
+    setEditorValue('titleInput', settings['augmentTitle']);
+    settings['augmentDescription'] = populateDescriptionVariables(
+        settings['selectedAugment'],
+        getDescriptionStarIndex()
+    );
+    setEditorValue('descriptionInput', settings['augmentDescription']);
 
     mergeAugmentImages();
 }
@@ -1145,8 +1168,8 @@ async function setSelectedCustomAugment(index) {
     }
 
     // Update UI elements
-    document.getElementById('titleInput').value = settings.augmentTitle;
-    document.getElementById('descriptionInput').value = settings.augmentDescription;
+    setEditorValue('titleInput', settings.augmentTitle);
+    setEditorValue('descriptionInput', settings.augmentDescription);
     syncFontUI();
     document.getElementById('iconXOffset').value = settings.iconXOffset;
     document.getElementById('iconYOffset').value = settings.iconYOffset;
@@ -1156,7 +1179,7 @@ async function setSelectedCustomAugment(index) {
     document.getElementById('descriptionXOffset').value = settings.descriptionXOffset;
     document.getElementById('titleLineHeight').value = settings.titleLineHeight;
     document.getElementById('descriptionLineHeight').value = settings.descriptionLineHeight;
-    document.getElementById('customFrame').value = settings.selectedFrame.replace('.png', '');
+    document.getElementById('customFrame').value = frameFilenameToKey(settings.selectedFrame);
     document.getElementById('languageSelect').value = settings.language;
     document.getElementById('itemModifierSelect').value = settings.selectedModifier;
 
@@ -1287,7 +1310,7 @@ function setSelectedItem(id) {
     settings['customImage'] = null;
     settings['selectedCustomAugment'] = null;
     settings['augmentTitle'] = settings['selectedItem'].name;
-    document.getElementById('titleInput').value = settings['augmentTitle'];
+    setEditorValue('titleInput', settings['augmentTitle']);
 
     mergeAugmentImages();
 }
@@ -1347,7 +1370,7 @@ function setSelectedArenaItem(id) {
 
     // Set the title
     settings['augmentTitle'] = settings['selectedArenaItem'].name;
-    document.getElementById('titleInput').value = settings['augmentTitle'];
+    setEditorValue('titleInput', settings['augmentTitle']);
 
     // Set the description using fetched data
     let description = '';
@@ -1362,7 +1385,7 @@ function setSelectedArenaItem(id) {
     const processedDescription = populateDescriptionVariables(tempItem);
 
     settings['augmentDescription'] = processedDescription;
-    document.getElementById('descriptionInput').value = settings['augmentDescription'];
+    setEditorValue('descriptionInput', settings['augmentDescription']);
 
     // Apply preferred frame based on item code type
     if (settings['selectedArenaItem'].preferredFrame) {
@@ -1389,6 +1412,16 @@ function populateModifierDropdown() {
         modifierSelect.appendChild(option);
     });
 }
+
+// Monotonically increasing generation counter — bumped at the start of every
+// `mergeAugmentImages()` call. Each render's `.then` handler captures its
+// generation and bails if a newer render has since been kicked off. This
+// prevents stale renders from overwriting fresher ones when they resolve
+// out of order (e.g. the title-change render from `setEditorValue('titleInput',…)`
+// started with a stale description in `settings.augmentDescription`, and if
+// its image loads happen to finish after the subsequent description-change
+// render, it would paint the old description onto the canvas).
+let _renderGeneration = 0;
 
 function mergeAugmentImages() {
     let iconImage;
@@ -1447,8 +1480,15 @@ function mergeAugmentImages() {
         imagePositionOffsets[3] = [modifiedXOffset, modifiedYOffset];
     }
 
+    const myGen = ++_renderGeneration;
     mergeImages(images, {}, imagePositionOffsets, settings['augmentTitle'], settings['augmentDescription'], settings['iconSize'])
-        .then(b64 => document.getElementById('imageOutput').src = b64);
+        .then(b64 => {
+            // Discard stale renders: if another `mergeAugmentImages()` has
+            // been called since this one started, its data is newer and we
+            // must not clobber the canvas with our older result.
+            if (myGen !== _renderGeneration) return;
+            document.getElementById('imageOutput').src = b64;
+        });
 }
 
 function updateCanvasVariable(value, variable) {
@@ -1470,6 +1510,17 @@ function updateFrameVariable(value) {
     mergeAugmentImages();
 }
 
+// Reverse-lookup: given a filename in `settings.selectedFrame`, find the
+// `borderImages` key that maps to it. Needed because dropdown option values
+// are keys (no `.png`, underscores only) but filenames can contain dots
+// (e.g. `augmentcard_frame_goh.arena_2026_s2.png`) so a naive
+// `.replace('.png','')` produces a value that doesn't match any option.
+function frameFilenameToKey(filename) {
+    if (!filename) return '';
+    const found = Object.entries(borderImages).find(([, f]) => f === filename);
+    return found ? found[0] : filename.replace('.png', '');
+}
+
 function changeBackground(value) {
     settings['selectedBackground'] = value;
     mergeAugmentImages();
@@ -1485,6 +1536,20 @@ function updateLevelSetting(key, value) {
         }
     }
     syncLevelButtonGroup(key, value);
+
+    // Star-index changes need to re-run the description pipeline so numbers
+    // like "Gain @AP@ AP" swap from "60-180" (range) or "60" (1★) to "120"
+    // (2★) etc. Only applies to selected JSON augments — custom augments,
+    // items, champions, etc. carry user-authored descriptions we don't want
+    // to clobber on every slider tick.
+    if ((key === 'levelMode' || key === 'levelCurrent') && settings['selectedAugment']) {
+        settings['augmentDescription'] = populateDescriptionVariables(
+            settings['selectedAugment'],
+            getDescriptionStarIndex()
+        );
+        setEditorValue('descriptionInput', settings['augmentDescription']);
+    }
+
     mergeAugmentImages();
 }
 

@@ -4,6 +4,29 @@
     <meta charset="UTF-8">
     <title>Augment Builder</title>
     <link rel="stylesheet" href="css/styles.css">
+    <!--
+      Import map for CodeMirror 6 (description/title editor).
+      Every subpackage must resolve the same @codemirror/state and @codemirror/view
+      instances, otherwise CM's instanceof-based extension validation throws
+      "Unrecognized extension value in extension set". The ?external= query on
+      dependent packages tells esm.sh to leave the listed peer deps as bare
+      specifiers, which then resolve via this import map to a single shared copy.
+    -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@codemirror/state": "https://esm.sh/@codemirror/state@6.4.1",
+        "@codemirror/view": "https://esm.sh/@codemirror/view@6.26.3?external=@codemirror/state",
+        "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.3.3?external=@codemirror/state,@codemirror/view,@codemirror/language",
+        "@codemirror/language": "https://esm.sh/@codemirror/language@6.10.1?external=@codemirror/state,@codemirror/view",
+        "@codemirror/lang-html": "https://esm.sh/@codemirror/lang-html@6.4.8?external=@codemirror/state,@codemirror/view,@codemirror/language,@codemirror/autocomplete,@codemirror/lang-javascript,@codemirror/lang-css",
+        "@codemirror/lang-javascript": "https://esm.sh/@codemirror/lang-javascript@6.2.2?external=@codemirror/state,@codemirror/view,@codemirror/language,@codemirror/autocomplete",
+        "@codemirror/lang-css": "https://esm.sh/@codemirror/lang-css@6.2.1?external=@codemirror/state,@codemirror/view,@codemirror/language,@codemirror/autocomplete",
+        "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete@6.12.0?external=@codemirror/state,@codemirror/view,@codemirror/language",
+        "@codemirror/theme-one-dark": "https://esm.sh/@codemirror/theme-one-dark@6.1.2?external=@codemirror/state,@codemirror/view,@codemirror/language"
+      }
+    }
+    </script>
 </head>
 <body>
     <div class="app-container">
@@ -72,19 +95,11 @@
                 <div class="form-controls">
                     <div class="form-row">
                         <label for="descriptionInput">Description</label>
-                        <div class="text-input-wrapper">
-                            <textarea name="descriptionInput" id="descriptionInput" placeholder="Enter description..." oninput="updateCanvasVariable(this.value, 'augmentDescription')"></textarea>
-                            <div class="ghost-cursor-mirror" aria-hidden="true"></div>
-                            <div class="ghost-cursor-marker" aria-hidden="true"></div>
-                        </div>
+                        <div class="text-input-wrapper code-editor-wrapper" id="descriptionInput" data-editor-kind="description"></div>
                     </div>
                     <div class="form-row">
                         <label for="titleInput">Title</label>
-                        <div class="text-input-wrapper">
-                            <textarea name="titleInput" id="titleInput" placeholder="Enter title..." oninput="updateCanvasVariable(this.value, 'augmentTitle')"></textarea>
-                            <div class="ghost-cursor-mirror" aria-hidden="true"></div>
-                            <div class="ghost-cursor-marker" aria-hidden="true"></div>
-                        </div>
+                        <div class="text-input-wrapper code-editor-wrapper code-editor-wrapper--single" id="titleInput" data-editor-kind="title"></div>
                     </div>
                 </div>
             </div>
@@ -421,6 +436,12 @@
                 <div class="timeline-actions">
                     <button type="button" class="btn btn-primary" onclick="findMatches()">Find Matches</button>
                     <button type="button" class="btn btn-sm" onclick="copyTimelineJson()">Copy JSON</button>
+                </div>
+
+                <div class="timeline-row timeline-lookup-row">
+                    <label for="timelineMatchIdInput">Or load match by ID</label>
+                    <input type="text" id="timelineMatchIdInput" placeholder="NA1_5123456789" autocomplete="off">
+                    <button type="button" class="btn btn-sm" onclick="lookupMatchById()">Load Match</button>
                 </div>
             </div>
 
