@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Augment Builder</title>
+
+    <script>
+
+        // NOTE for Cline: This is my original prototype of the augment image generator
+        // This file is only used for reference, it is considered deprecated
+
+        function createHiPPICanvas(width, height) {
+            const ratio = window.devicePixelRatio;
+            const canvas = document.createElement("canvas");
+
+            canvas.width = width * ratio;
+            canvas.height = height * ratio;
+            canvas.style.width = width + "px";
+            canvas.style.height = height + "px";
+            canvas.getContext("2d").scale(ratio, ratio);
+
+            return canvas;
+        }
+
+
+        // Modified from https://github.com/lukechilds/merge-images/blob/master/src/index.js
+        // Defaults
+        const defaultOptions = {
+            format: 'image/png',
+            quality: 1,
+            width: undefined,
+            height: undefined,
+            Canvas: undefined,
+            crossOrigin: true
+        };
+
+        // Return Promise
+        const mergeImages = (sources = [], options = {}, offsets = {}, title = "", description = "", iconSize = 256) => new Promise(resolve => {
+            options = Object.assign({}, defaultOptions, options);
+
+            // Setup browser/Node.js specific variables
+            const canvas = options.Canvas ? new options.Canvas() : createHiPPICanvas(600, 600);
+            const Image = options.Image || window.Image;
+
+            // Load sources
+            const images = sources.map(source => new Promise((resolve, reject) => {
+                // Convert sources to objects
+                if (source.constructor.name !== 'Object') {
+                    source = { src: source };
+                }
+
+                // Resolve source and img when loaded
+                const img = new Image();
+                img.crossOrigin = options.crossOrigin;
+                img.onerror = () => reject(new Error('Couldn\'t load image'));
+                img.onload = () => resolve(Object.assign({}, source, { img }));
+                img.src = source.src;
+            }));
+
+            // Get canvas context
+            const ctx = canvas.getContext('2d');
+
+            // When sources have loaded
+            resolve(Promise.all(images)
+                .then(images => {
+                    // Set canvas dimensions
+                    const getSize = dim => options[dim] || Math.max(...images.map(image => image.img[dim]));
+                    canvas.width = 512;
+                    // Allows for shiny images, otherwise the shiny part is cut off on the top and bottom
+                    canvas.height = 600;
+
+                    // Draw images to canvas
+                    images.forEach((image, index) => {
+                        ctx.globalAlpha = image.opacity ? image.opacity : 1;
+
+                        let xOffset = 0;
+                        let yOffset = 0;
+                        if (offsets[index]) {xOffset = offsets[index][0]; yOffset = offsets[index][1]}
+
+                        // Allows for shiny images, otherwise the shiny part is cut off on the top and bottom
+                        yOffset += 44;
+
+                        const xPosition = xOffset > 0 ? xOffset : image.x || 0;
+                        const yPosition = yOffset > 0 ? yOffset : image.y || 0;
+
+                        // Custom resize for icon
+                        if (index === 2) {
+                            return ctx.drawImage(image.img, xPosition, yPosition, iconSize, iconSize);
+                        } else {
+                            // Custom position for shiny frame
+                            if (index === 1 && settings['shinyFrame']) {
+                                return ctx.drawImage(image.img, xPosition - 256, yPosition - 256);
+                            } else {
+                                return ctx.drawImage(image.img, xPosition, yPosition);
+                            }
+                        }
+
+                    });
+
+                    if (title) {
+                        ctx.font = settings['titleFont'];
+                        ctx.fillStyle = "white";
+                        const maxWidth = 230;
+                        // If the title is multiple lines, push down the description automatically
+                        const numberOfTitleLines = wrapText(ctx, title, 256, settings['titleYOffset'], maxWidth, settings['titleLineHeight'])
+                        ctx.font = settings['descriptionFont'];
+                        wrapText(ctx, description, 256, settings['descriptionYOffset'] + ((numberOfTitleLines - 1) * settings["titleLineHeight"]), maxWidth, settings['descriptionLineHeight'])
+                    }
+
+                    if (options.Canvas && options.format === 'image/jpeg') {
+                        // Resolve data URI for node-canvas jpeg async
+                        return new Promise((resolve, reject) => {
+                            canvas.toDataURL(options.format, {
+                                quality: options.quality,
+                                progressive: false
+                            }, (err, jpeg) => {
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+                                resolve(jpeg);
+                            });
+                        });
+                    }
+
+                    // Resolve all other data URIs sync
+                    return canvas.toDataURL(options.format, options.quality);
+                }));
+        });
+
+        function wrapText(context, text, x, y, maxWidth, lineHeight = 16) {
+            // First respect the user's line breaks
+            const linebreakLines = text.split("\n");
+
+            // Now break down each of those lines into smaller lines if they are still too long
+            const finalLines = [];
+            linebreakLines.forEach((line) => finalLines.push(...getLines(context, line, maxWidth)))
+
+            let inRulesSection = false;
+            finalLines.forEach((line, index) => inRulesSection = writeCharacters(context, line, x, (y + (index * lineHeight)), inRulesSection));
+            return finalLines.length;
+        }
+
+        function getLines(ctx, text, maxWidth) {
+            let words = text.split(" ");
+            let lines = [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+                let word = words[i];
+
+                const wordNoTags = word.replaceAll(/(<([^>]+)>)/gi, "");
+                const currentLineNoTags = currentLine.replaceAll(/(<([^>]+)>)/gi, "");
+
+                let width = ctx.measureText(currentLineNoTags + " " + wordNoTags).width;
+                if (width < maxWidth) {
+                    currentLine += " " + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        const colorTable = {
+            scaleBonus: "#c9aa71",
+            magicDamage: "#00B0F0",
+            physicalDamage: "orange",
+            recast: "rgb(255,143,97)",
+            rules: "rgb(255, 255, 255, 0.4)",
+            healing: "#60b087",
+            shield: '#70b3b4',
+            status: '#b29cc0',
+            spellName: '#dad2b5'
+        }
+
+        function writeCharacters(ctx, str, x, y, inRulesSection) {
+            const strNoTags = str.replaceAll(/(<([^>]+)>)/gi, "");
+
+            const lineWidth = ctx.measureText(strNoTags).width;
+            const xCenterAdjustment = lineWidth / 2;
+
+            console.log(str);
+
+            for(let i = 0; i <= str.length; ++i) {
+                let ch = str.charAt(i);
+
+                // Color Formatting
+                if (ch === "<") {
+                    const endOfTag = str.indexOf(">", i);
+                    if (endOfTag !== -1) {
+                        const colorName = str.substring(i + 1, endOfTag);
+                        const colorValue = colorTable[colorName];
+                        if (colorValue) {
+                            ctx.fillStyle = colorValue;
+                            if (colorName === "rules") {
+                                ctx.font = "italic";
+                                inRulesSection = true;
+                                console.log("got rules");
+                            }
+                        } else {
+                            // Continue with rules formatting until the rules section ends
+                            if (inRulesSection) {
+                                console.log('rulesss');
+                                ctx.fillStyle = colorTable["rules"];
+                                ctx.font = "italic";
+                            } else {
+                                ctx.fillStyle = "white";
+                                inRulesSection = false;
+                            }
+                        }
+                        i += endOfTag - i;
+                        continue;
+                    }
+                }
+
+                ctx.fillText(ch, x - xCenterAdjustment, y);
+                x += Math.round(ctx.measureText(ch).width);
+            }
+            return inRulesSection;
+        }
+
+
+
+        const arenaJsonDataUrl = "https://raw.communitydragon.org/pbe/cdragon/arena/";
+        const championJsonDataUrl = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json";
+        const communityDragonBaseUrl = "https://raw.communitydragon.org/pbe/game/";
+
+        const baseSquarePortraitPath = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/";
+
+
+        const augmentFrameBaseUrl = communityDragonBaseUrl + "assets/ux/cherry/augments/augmentselection/";
+
+        // Border Images
+        const borderImages = {
+            augmentcard_bg: "augmentcard_bg.png",
+            augmentcard_frame_silver: "augmentcard_frame_silver.png",
+            augmentcard_frame_gold: "augmentcard_frame_gold.png",
+            augmentcard_frame_prismatic: "augmentcard_frame_prismatic.png",
+            augmentcard_sheenglow_silver: "augmentcard_sheenglow_silver.png",
+            augmentcard_sheenglow_gold: "augmentcard_sheenglow_gold.png",
+            augmentcard_sheenglow_prismatic: "augmentcard_sheenglow_prismatic.png",
+        }
+
+        const settings = {
+            selectedAugment: null,
+            selectedFrame: borderImages["augmentcard_frame_prismatic"],
+            shinyFrame: false,
+            augmentTitle: "",
+            augmentDescription: "",
+            iconXOffset: 156,
+            iconYOffset: 40,
+            titleFont: "bold 24px LolBeautfortBold",
+            descriptionFont: "14px LolBeautfort",
+            selectedChampion: null,
+            titleYOffset: 324,
+            descriptionYOffset: 364,
+            titleLineHeight: 26,
+            descriptionLineHeight: 18,
+            language: 'en_us',
+        };
+
+        let arenaJsonData = null;
+        let championJsonData = null;
+
+        let augmentSearch = "";
+        let championSearch = "";
+
+
+        function updateAugmentSearch(value) {
+            augmentSearch = value;
+            filterAugments();
+        }
+
+        function updateChampionSearch(value) {
+            championSearch = value;
+            filterChampions();
+        }
+
+        function setDefaultTitleFont() {
+            settings['titleFont'] = "bold 24px LolBeautfortBold";
+            document.getElementById("titleFontInput").value = "bold 24px LolBeautfortBold";
+        }
+
+        function setDefaultDescriptionFont() {
+            settings['descriptionFont'] = "14px LolBeautfort";
+            document.getElementById("descriptionFontInput").value = "16px LolBeautfort";
+        }
+
+        function createAugmentButton(augmentData) {
+            const container = document.createElement("div");
+            container.setAttribute("class", "augmentButton");
+            container.setAttribute("onclick", "setSelectedAugment(" + augmentData['id'] + ")");
+
+            const augmentName = document.createElement("span");
+            augmentName.innerText = augmentData['name'];
+            container.appendChild(augmentName);
+
+            const image = document.createElement("img");
+            image.setAttribute("src", communityDragonBaseUrl + augmentData['iconLarge'])
+            container.appendChild(image);
+
+            return container;
+        }
+
+        function displayAugments(data) {
+            const augmentsHtml = data.map((augmentData) => {
+                augmentData['element'] = createAugmentButton(augmentData);
+                return augmentData;
+            });
+        }
+
+        function compareNames(a, b) {
+            if (a.name < b.name){
+                return -1;
+            }
+            if (a.name > b.name){
+                return 1;
+            }
+            return 0;
+        }
+
+        async function getArenaJson() {
+            await getAugmentData();
+            setDefaultTitleFont()
+            setDefaultDescriptionFont()
+            setSelectedAugment(1);
+            displayAugments(arenaJsonData);
+            filterAugments();
+        }
+
+        async function getAugmentData() {
+            const response = await fetch(arenaJsonDataUrl + settings['language'] + '.json');
+            arenaJsonData = (await response.json())['augments'].sort(compareNames);
+        }
+
+        function getChampionIcon(champion, type) {
+            return communityDragonBaseUrl + "assets/characters/" + champion + "/hud/" + champion + "_" + type + ".png";
+        }
+
+        async function getChampionJson() {
+            const response = await fetch(championJsonDataUrl);
+            championJsonData = await response.json();
+
+            championJsonData = championJsonData.filter((champion) => champion.id !== -1).sort(compareNames);
+
+            championJsonData.map((champion) => {
+                champion['circleIcon'] = getChampionIcon(champion['alias'].toLowerCase(), "circle");
+                champion['squareIcon'] = getChampionIcon(champion['alias'].toLowerCase(), "square");
+            });
+
+            console.log(championJsonData);
+
+            displayChampions(championJsonData);
+            filterChampions();
+        }
+
+        function setSelectedChampion(id) {
+            settings['selectedChampion'] = championJsonData.filter((e) => e['id'] === id)[0];
+            settings['selectedAugment'] = null;
+            console.log(settings['selectedChampion']['name']);
+            mergeAugmentImages();
+        }
+
+        function createChampionButton(champion) {
+            const container = document.createElement("div");
+            container.setAttribute("class", "augmentButton");
+            container.setAttribute("onclick", "setSelectedChampion(" + champion['id'] + ")");
+
+            const championName = document.createElement("span");
+            championName.innerText = champion['name'];
+            container.appendChild(championName);
+
+            const image = document.createElement("img");
+            image.setAttribute("src", baseSquarePortraitPath + champion['id'] + ".png")
+            container.appendChild(image);
+
+            return container;
+        }
+
+        function displayChampions(data) {
+            const championsHtml = data.map((champion) => {
+                champion['element'] = createChampionButton(champion);
+                return champion;
+            });
+
+            console.log(championsHtml);
+        }
+
+        function filterChampions() {
+            const championsList = document.getElementById("championsList");
+            championsList.innerHTML = "";
+            championJsonData.filter((e) => (e['name'].toLowerCase().includes(championSearch.toLowerCase()) > 0))
+                .forEach((e) => championsList.appendChild(e.element));
+        }
+
+
+
+
+
+
+
+
+        // Need exceptions for:
+        // Rabble Rousing
+        // Shadow Runner
+        // Orbital Laser
+        // Homeguard
+        // Guilty Pleasure
+        // Courage of the Colossus
+        // Contract Killer
+        // Blood Brother
+
+
+        function populateDescriptionVariables() {
+            let description = settings['selectedAugment']['desc'];
+            const dataValues = settings['selectedAugment']['dataValues'];
+
+            while (description.includes("@")) {
+                const startIndex = description.indexOf("@");
+                const endIndex = description.indexOf("@", startIndex + 1);
+                const varName = description.substring(startIndex, endIndex + 1);
+                let multiplier = null;
+                let asteriskIndex = null;
+
+                // If it has a multiplier
+                if (varName.includes("*")) {
+                    asteriskIndex = varName.indexOf("*");
+                    multiplier = varName.substring(asteriskIndex, varName.length - 1);
+                }
+
+                const isolatedVarName = varName.substring(1, asteriskIndex ? asteriskIndex : (varName.length - 1));
+
+                let varValue = dataValues[isolatedVarName];
+
+                if (multiplier) {
+                    // Use something safer than eval later
+                    varValue = eval(varValue + multiplier);
+                }
+
+                varValue = Math.fround(varValue);
+                varValue = Math.floor(varValue * 100)/100;
+
+                description = description.replaceAll(varName, varValue);
+            }
+
+            let modifiedDescription = description.replaceAll("<br>", "\n");
+            return modifiedDescription.replaceAll(/((%i.+)% )/gi, "");
+            // return modifiedDescription.replace(/(<([^>]+)>)/gi, "");
+        }
+
+        function setSelectedAugment(id) {
+            settings['selectedAugment'] = arenaJsonData.filter((e) => e['id'] === id)[0];
+            settings['selectedChampion'] = null;
+
+            const rarity = settings['selectedAugment']['rarity'];
+            switch (rarity) {
+                case 0:
+                    settings['selectedFrame'] = borderImages['augmentcard_frame_silver'];
+                    break;
+                case 1:
+                    settings['selectedFrame'] = borderImages['augmentcard_frame_gold'];
+                    break;
+                case 2:
+                    settings['selectedFrame'] = borderImages['augmentcard_frame_prismatic'];
+                    break;
+                default:
+                    settings['selectedFrame'] = borderImages['augmentcard_bg'];
+            }
+            settings['shinyFrame'] = false;
+
+            settings['augmentTitle'] = settings['selectedAugment']['name'];
+            document.getElementById('titleInput').value = settings['augmentTitle'];
+            settings['augmentDescription'] = populateDescriptionVariables();
+            document.getElementById('descriptionInput').value = settings['augmentDescription'];
+
+            mergeAugmentImages();
+        }
+
+
+        function filterAugments() {
+            const augmentsList = document.getElementById("augmentsList");
+            augmentsList.innerHTML = "";
+            arenaJsonData.filter((e) => (e['name'].toLowerCase().includes(augmentSearch.toLowerCase()) > 0))
+                .forEach((e) => augmentsList.appendChild(e.element));
+        }
+
+        function mergeAugmentImages() {
+
+            let iconImage;
+            let iconSize;
+            let imagePositionOffsets;
+
+            // For augments
+            if (settings['selectedAugment'] !== null) {
+                iconImage = communityDragonBaseUrl + settings['selectedAugment']['iconLarge'];
+                iconSize = 150;
+                // imagePositionOffsets = {2:[settings['iconXOffset'], settings['iconYOffset']]};
+            } else if (settings['selectedChampion'] !== null) {
+                iconImage = baseSquarePortraitPath + settings['selectedChampion']['id'] + ".png";
+                iconSize = 150;
+            } else {
+                return;
+            }
+
+            const modifiedXOffset = parseInt(settings['iconXOffset']) + 25;
+            const modifiedYOffset = parseInt(settings['iconYOffset']) + 10;
+            imagePositionOffsets = {2:[modifiedXOffset, modifiedYOffset]};
+
+            const images = [augmentFrameBaseUrl + borderImages['augmentcard_bg'],
+                augmentFrameBaseUrl + settings['selectedFrame'],
+                iconImage];
+
+            const options = {};
+
+            mergeImages(images, options, imagePositionOffsets, settings['augmentTitle'], settings['augmentDescription'], iconSize)
+                .then(b64 => document.getElementById('imageOutput').src = b64);
+        }
+
+        function updateCanvasVariable(value, variable) {
+            settings[variable] = value;
+            mergeAugmentImages();
+        }
+
+        function updateFrameVariable(value) {
+            settings['selectedFrame'] = borderImages[value];
+            settings['shinyFrame'] = value.includes("sheenglow");
+            mergeAugmentImages();
+        }
+
+        async function setLanguage(value) {
+            settings['language'] = value;
+            await getAugmentData();
+            setSelectedAugment(settings['selectedAugment']['id']);
+
+            // Fix an issue where changing language breaks searching augments
+            const augmentsList = document.getElementById("augmentsList");
+            augmentsList.innerHTML = "";
+            displayAugments(arenaJsonData);
+            filterAugments();
+
+            mergeAugmentImages();
+        }
+
+
+        async function init() {
+            let p1 = getArenaJson()
+            let p2 = getChampionJson();
+
+            Promise.all([p1, p2]).then(mergeAugmentImages);
+        }
+
+        init();
+
+
+    </script>
+
+</head>
+<body>
+
+
+<div class="leftColumn">
+    <div style="display: flex; flex-direction: row; justify-content: center; align-items: center;">
+        <input type="text" id="augmentSearchInput" oninput="updateAugmentSearch(this.value)">
+        <span style="font-size: 25px; cursor: pointer; padding-bottom: 4px;" onclick="updateAugmentSearch(''); document.getElementById('augmentSearchInput').value = '';">✖</span>
+    </div>
+    <div class="list" id="augmentsList">
+    </div>
+</div>
+
+<div class="middleColumn">
+    <div>
+        <img id="imageOutput"></img>
+    </div>
+
+    <form class="sliderForm" oninput="iconXOutput.value = settings['iconXOffset']">
+        <label for="iconXOffset">Icon X Offset</label>
+        <input type="range" min="0" max="512" value="156" class="slider" id="iconXOffset" oninput="updateCanvasVariable(parseInt(this.value), 'iconXOffset')">
+        <output name="iconXOutput" for="iconXOffset">156</output>
+    </form>
+
+    <form class="sliderForm" oninput="iconYOutput.value = settings['iconYOffset']">
+        <label for="iconYOffset">Icon Y Offset</label>
+        <input type="range" min="0" max="600" value="40" class="slider" id="iconYOffset" oninput="updateCanvasVariable(parseInt(this.value), 'iconYOffset')">
+        <output name="iconYOutput" for="iconYOffset">40</output>
+    </form>
+
+    <label for="customFrame">Frame Override</label>
+    <select id="customFrame" oninput="updateFrameVariable(this.value)">
+        <option value="augmentcard_bg">No Frame</option>
+        <option value="augmentcard_frame_silver">Silver</option>
+        <option value="augmentcard_frame_gold">Gold</option>
+        <option value="augmentcard_frame_prismatic">Prismatic</option>
+        <option value="augmentcard_sheenglow_silver">Shiny Silver</option>
+        <option value="augmentcard_sheenglow_gold">Shiny Gold</option>
+        <option value="augmentcard_sheenglow_prismatic">Shiny Prismatic</option>
+    </select>
+    <label for="languageSelect">Language</label>
+    <select id="languageSelect" oninput="setLanguage(this.value)">
+        <option value="ar_ae">ar_ae</option>
+        <option value="cs_cz">cs_cz</option>
+        <option value="de_de">de_de</option>
+        <option value="el_gr">el_gr</option>
+        <option value="en_au">en_au</option>
+        <option value="en_gb">en_gb</option>
+        <option value="en_ph">en_ph</option>
+        <option value="en_sg">en_sg</option>
+        <option value="en_us" selected>en_us</option>
+        <option value="es_ar">es_ar</option>
+        <option value="es_es">es_es</option>
+        <option value="es_mx">es_mx</option>
+        <option value="fr_fr">fr_fr</option>
+        <option value="hu_hu">hu_hu</option>
+        <option value="it_it">it_it</option>
+        <option value="ja_jp">ja_jp</option>
+        <option value="ko_kr">ko_kr</option>
+        <option value="pl_pl">pl_pl</option>
+        <option value="pt_br">pt_br</option>
+        <option value="ro_ro">ro_ro</option>
+        <option value="ru_ru">ru_ru</option>
+        <option value="th_th">th_th</option>
+        <option value="tr_tr">tr_tr</option>
+        <option value="vi_vn">vi_vn</option>
+        <option value="zh_cn">zh_cn</option>
+        <option value="zh_my">zh_my</option>
+        <option value="zh_tw">zh_tw</option>
+    </select>
+
+    <br>
+    <br>
+
+    <div>
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <label for="titleInput" style="margin-right: 8px;">Title</label>
+            <textarea name="titleInput" id="titleInput" oninput="updateCanvasVariable(this.value, 'augmentTitle')"></textarea>
+        </div>
+        <br>
+        <label for="titleFontInput">Title Font</label>
+        <input name="titleFontInput" id="titleFontInput" oninput="updateCanvasVariable(this.value, 'titleFont')"/>
+        <form class="sliderForm" oninput="titleYOutput.value = settings['titleYOffset']">
+            <label for="titleYOffset">Title Y Offset</label>
+            <input type="range" min="0" max="600" value="324" class="slider" id="titleYOffset" oninput="updateCanvasVariable(parseInt(this.value), 'titleYOffset')">
+            <output name="titleYOutput" for="titleYOffset">324</output>
+        </form>
+        <form class="sliderForm" oninput="titleLineHeightOutput.value = settings['titleLineHeight']">
+            <label for="titleLineHeight">Title Line Height</label>
+            <input type="range" min="0" max="64" value="26" class="slider" id="titleLineHeight" oninput="updateCanvasVariable(parseInt(this.value), 'titleLineHeight')">
+            <output name="titleLineHeightOutput" for="titleLineHeight">26</output>
+        </form>
+        <form class="sliderForm" oninput="descriptionLineHeightOutput.value = settings['descriptionLineHeight']">
+            <label for="descriptionLineHeight">Description Line Height</label>
+            <input type="range" min="0" max="64" value="18" class="slider" id="descriptionLineHeight" oninput="updateCanvasVariable(parseInt(this.value), 'descriptionLineHeight')">
+            <output name="descriptionLineHeightOutput" for="descriptionLineHeight">18</output>
+        </form>
+    </div>
+
+
+    <div>
+        <label for="descriptionInput">Description</label>
+        <br>
+        <textarea name="descriptionInput" id="descriptionInput" oninput="updateCanvasVariable(this.value, 'augmentDescription')"></textarea>
+        <br>
+        <br>
+        <label for="descriptionFontInput">Description Font</label>
+        <input name="descriptionFontInput" id="descriptionFontInput" oninput="updateCanvasVariable(this.value, 'descriptionFont')"/>
+        <form class="sliderForm" oninput="descriptionYOutput.value = settings['descriptionYOffset']">
+            <label for="descriptionYOffset">Description Y Offset</label>
+            <input type="range" min="0" max="600" value="364" class="slider" id="descriptionYOffset" oninput="updateCanvasVariable(parseInt(this.value), 'descriptionYOffset')">
+            <output name="descriptionYOutput" for="descriptionYOffset">364</output>
+        </form>
+    </div>
+
+
+</div>
+
+<div class="rightColumn">
+    <div style="display: flex; flex-direction: row; justify-content: center; align-items: center;">
+        <input type="text" id="championSearchInput" oninput="updateChampionSearch(this.value)">
+        <span style="font-size: 25px; cursor: pointer; padding-bottom: 4px;" onclick="updateChampionSearch(''); document.getElementById('championSearchInput').value = '';">✖</span>
+    </div>
+
+    <div class="list" id="championsList">
+    </div></div>
+</body>
+
+
+
+<style>
+
+    body {
+        display: flex;
+        background-color: #222222;
+        color: white;
+    }
+
+    @font-face {
+        font-family: LolBeautfort;
+        src: url('./fonts/BeaufortforLOL-Regular.ttf') format('truetype');
+    }
+    @font-face {
+        font-family: LolBeautfortBold;
+        src: url('./fonts/BeaufortforLOL-Bold.ttf') format('truetype');
+    }
+
+    .list {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        background-color: #333333;
+        min-width: 100%;
+        max-height: 90vh;
+        overflow-y: scroll;
+    }
+
+    .augmentButton {
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+        max-width: 128px;
+        height: 164px;
+        justify-content: center;
+        /*border: black 1px solid;*/
+        border-radius: 8px;
+        margin: 8px 8px;
+        filter: drop-shadow(0 0 0.1rem gray);
+        background-color: #020E10;
+        padding: 4px 4px;
+    }
+
+    .slider {
+        -webkit-appearance: none;
+        height: 15px;
+        border-radius: 5px;
+        background: #d3d3d3;
+        outline: none;
+        opacity: 0.7;
+        -webkit-transition: .2s;
+        transition: opacity .2s;
+        width: 60%;
+    }
+
+    .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: royalblue;
+        cursor: pointer;
+    }
+
+    .slider::-moz-range-thumb {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: royalblue;
+        cursor: pointer;
+    }
+
+    .sliderForm {
+        margin: 12px 12px;
+    }
+
+    .leftColumn {
+        text-align: center;
+        align-items: center;
+        width: 33%;
+    }
+
+    #augmentSearchInput {
+        margin: 8px 8px;
+        height: 30px;
+        width: 200px;
+        border-radius: 10px;
+        font-size: 20px;
+    }
+
+    #championSearchInput {
+        margin: 8px 8px;
+        height: 30px;
+        width: 200px;
+        border-radius: 10px;
+        font-size: 20px;
+    }
+
+    .middleColumn {
+        margin-top: 48px;
+        text-align: center;
+        flex-direction: column;
+        align-items: center;
+        width: 33%;
+    }
+
+    .rightColumn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 33%;
+    }
+
+    #descriptionInput {
+        width: 450px;
+        height: 100px;
+    }
+
+</style>
+
+
+</html>
