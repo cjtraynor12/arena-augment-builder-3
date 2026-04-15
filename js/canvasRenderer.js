@@ -1,6 +1,6 @@
 // Canvas Renderer Module
 import { settings } from './state.js';
-import { imageKeywordMap, getStatIconUrl, inlineImageUrlMap } from './dataManager.js';
+import { imageKeywordMap, getStatIconUrl, inlineImageUrlMap, levelStarBaseUrl } from './dataManager.js';
 
 // Callback for redrawing (set by app.js to avoid circular dependency)
 let _redrawCallback = null;
@@ -50,11 +50,12 @@ export const mergeImages = (sources = [], options = {}, offsets = {}, title = ""
     const ctx = canvas.getContext('2d');
 
     resolve(Promise.all(images)
-        .then(images => {
+        .then(async (images) => {
             canvas.width = 512;
             canvas.height = 600;
 
-            images.forEach((image, index) => {
+            for (let index = 0; index < images.length; index++) {
+                const image = images[index];
                 ctx.globalAlpha = image.opacity ? image.opacity : 1;
 
                 let xOffset = 0;
@@ -66,15 +67,22 @@ export const mergeImages = (sources = [], options = {}, offsets = {}, title = ""
                 const xPosition = xOffset > 0 ? xOffset : image.x || 0;
                 const yPosition = yOffset > 0 ? yOffset : image.y || 0;
 
+                // Draw level overlay after background but before frame
+                if (index === 1) {
+                    ctx.globalAlpha = 1;
+                    await drawLevelOnCanvas(ctx);
+                    ctx.globalAlpha = image.opacity ? image.opacity : 1;
+                }
+
                 if (index === 2) {
                     // Main icon - use custom size
-                    return ctx.drawImage(image.img, xPosition, yPosition, iconSize, iconSize);
+                    ctx.drawImage(image.img, xPosition, yPosition, iconSize, iconSize);
                 } else if (index === 3) {
                     // Modifier overlay - scale with icon size
-                    return ctx.drawImage(image.img, xPosition, yPosition, iconSize, iconSize);
+                    ctx.drawImage(image.img, xPosition, yPosition, iconSize, iconSize);
                 } else {
                     if (index === 1 && settings['shinyFrame']) {
-                        return ctx.drawImage(image.img, xPosition - 256, yPosition - 256);
+                        ctx.drawImage(image.img, xPosition - 256, yPosition - 256);
                     } else if (index === 1 && settings['customFrame']) {
                         // For custom frames, we need to center them properly
                         // Check if the image is larger than standard frame size and adjust accordingly
@@ -87,12 +95,12 @@ export const mergeImages = (sources = [], options = {}, offsets = {}, title = ""
                         const xOffset = (imgWidth - standardWidth) / 2;
                         const yOffset = (imgHeight - standardHeight) / 2;
 
-                        return ctx.drawImage(image.img, xPosition - xOffset, yPosition - yOffset);
+                        ctx.drawImage(image.img, xPosition - xOffset, yPosition - yOffset);
                     } else {
-                        return ctx.drawImage(image.img, xPosition, yPosition);
+                        ctx.drawImage(image.img, xPosition, yPosition);
                     }
                 }
-            });
+            }
 
             if (title) {
                 ctx.font = settings['titleFont'];
@@ -460,5 +468,79 @@ function writeCharacters(ctx, str, x, y, inRulesSection, isDescription = false) 
         }
 
         resolve(inRulesSection);
+    });
+}
+
+// Level star image cache (separate from inline icon cache)
+const levelImageCache = new Map();
+
+function loadLevelImage(url) {
+    return new Promise((resolve, reject) => {
+        if (levelImageCache.has(url)) {
+            resolve(levelImageCache.get(url));
+            return;
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            levelImageCache.set(url, img);
+            resolve(img);
+        };
+        img.onerror = () => {
+            console.warn('Failed to load level image:', url);
+            reject(new Error('Failed to load: ' + url));
+        };
+        img.src = url;
+    });
+}
+
+/**
+ * Draws level backplate + stars onto an existing canvas context.
+ * Called between background and frame rendering so it appears under the frame.
+ */
+function drawLevelOnCanvas(ctx) {
+    const mode = settings.levelMode;
+    if (mode === 'off') return Promise.resolve();
+
+    const tier = settings.levelTier || 'gold';
+    const totalStars = parseInt(mode); // 2 or 3
+    const filledStars = Math.min(settings.levelCurrent || 1, totalStars);
+
+    const backplateUrl = levelStarBaseUrl + `levelstar_${tier}_backplate.arena_2026_s2.png`;
+    const currentUrl = levelStarBaseUrl + `levelstar_${tier}_current.arena_2026_s2.png`;
+    const inactiveUrl = levelStarBaseUrl + `levelstar_${tier}_inactive.arena_2026_s2.png`;
+
+    return Promise.all([
+        loadLevelImage(backplateUrl),
+        loadLevelImage(currentUrl),
+        loadLevelImage(inactiveUrl)
+    ]).then(([backplate, starCurrent, starInactive]) => {
+        // Draw backplate centered at configured position
+        const bpScale = settings.levelBackplateScale || 1;
+        const bpW = backplate.naturalWidth * bpScale;
+        const bpH = backplate.naturalHeight * bpScale;
+        const bpX = (settings.levelBackplateX || 256) - bpW / 2;
+        const bpY = (settings.levelBackplateY || 50);
+        ctx.drawImage(backplate, bpX, bpY, bpW, bpH);
+
+        // Draw stars centered on backplate
+        const starScale = settings.levelStarScale || 1;
+        const starW = starCurrent.naturalWidth * starScale;
+        const starH = starCurrent.naturalHeight * starScale;
+        const spacing = settings.levelStarSpacing || 21;
+        const starOffsetY = settings.levelStarOffsetY || 0;
+
+        // Center the star group on backplate center
+        const groupWidth = (totalStars - 1) * spacing;
+        const startX = (settings.levelBackplateX || 256) - groupWidth / 2;
+        const starY = bpY + bpH / 2 - starH / 2 + starOffsetY;
+
+        for (let i = 0; i < totalStars; i++) {
+            const star = (i < filledStars) ? starCurrent : starInactive;
+            const sx = startX + i * spacing - starW / 2;
+            ctx.drawImage(star, sx, starY, starW, starH);
+        }
+    }).catch((err) => {
+        console.warn('Failed to draw level overlay:', err);
     });
 }

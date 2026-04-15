@@ -21,7 +21,17 @@ export const settings = {
     language: 'en_us',
     customImage: null,
     customFrame: null,
-    selectedBackground: "augmentcard_bg.png"
+    selectedBackground: "augmentcard_bg.png",
+    // Augment Levels
+    levelMode: 'off',       // 'off', '2', '3'
+    levelTier: 'gold',      // 'silver', 'gold', 'prismatic'
+    levelCurrent: 1,        // 1, 2, or 3 (filled stars)
+    levelBackplateX: 257,   // center X of backplate
+    levelBackplateY: 50,    // Y position of backplate
+    levelBackplateScale: 0.9, // scale multiplier for backplate
+    levelStarScale: 0.7,    // scale multiplier for stars
+    levelStarSpacing: 21,   // horizontal spacing between star centers
+    levelStarOffsetY: -3    // Y offset of stars relative to backplate center
 };
 
 export const borderImages = {

@@ -1394,6 +1394,18 @@ function changeBackground(value) {
     mergeAugmentImages();
 }
 
+function updateLevelSetting(key, value) {
+    settings[key] = value;
+    const el = document.getElementById(key);
+    if (el) {
+        const output = el.nextElementSibling;
+        if (output && output.tagName === 'OUTPUT') {
+            output.value = value;
+        }
+    }
+    mergeAugmentImages();
+}
+
 function clearCustomFrame() {
     settings['customFrame'] = null;
     mergeAugmentImages();
@@ -1712,6 +1724,7 @@ window.updateFrameVariable = updateFrameVariable;
 window.updateModifierVariable = updateModifierVariable;
 window.clearCustomFrame = clearCustomFrame;
 window.changeBackground = changeBackground;
+window.updateLevelSetting = updateLevelSetting;
 window.setLanguage = setLanguage;
 window.selectPreset = selectPreset;
 window.saveNewPreset = saveNewPreset;

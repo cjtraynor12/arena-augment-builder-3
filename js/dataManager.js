@@ -7,6 +7,7 @@ export const communityDragonBaseUrl = "https://raw.communitydragon.org/pbe/game/
 export const baseSquarePortraitPath = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/";
 
 export const augmentFrameBaseUrl = communityDragonBaseUrl + "assets/ux/cherry/augments/augmentselection/";
+export const levelStarBaseUrl = communityDragonBaseUrl + "assets/ux/cherry/augments/levelup/";
 
 export let arenaJsonData = null;
 export let championJsonData = null;

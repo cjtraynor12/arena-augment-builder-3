@@ -128,6 +128,64 @@
                 </div>
             </div>
 
+            <!-- Collapsible: Augment Levels -->
+            <details class="collapsible" id="levelsCollapsible">
+                <summary>Augment Levels</summary>
+                <div class="collapsible-content">
+                    <div class="form-row">
+                        <label for="levelMode">Level Mode</label>
+                        <select id="levelMode" onchange="updateLevelSetting('levelMode', this.value)">
+                            <option value="off" selected>Off</option>
+                            <option value="2">2-Star</option>
+                            <option value="3">3-Star</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="levelTier">Tier</label>
+                        <select id="levelTier" onchange="updateLevelSetting('levelTier', this.value)">
+                            <option value="silver">Silver</option>
+                            <option value="gold" selected>Gold</option>
+                            <option value="prismatic">Prismatic</option>
+                        </select>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelCurrent">Filled Stars</label>
+                        <input type="range" min="1" max="3" value="1" class="slider" id="levelCurrent" oninput="updateLevelSetting('levelCurrent', parseInt(this.value))">
+                        <output for="levelCurrent">1</output>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelBackplateX">Backplate X</label>
+                        <input type="range" min="0" max="512" value="257" class="slider" id="levelBackplateX" oninput="updateLevelSetting('levelBackplateX', parseInt(this.value))">
+                        <output for="levelBackplateX">257</output>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelBackplateY">Backplate Y</label>
+                        <input type="range" min="0" max="200" value="50" class="slider" id="levelBackplateY" oninput="updateLevelSetting('levelBackplateY', parseInt(this.value))">
+                        <output for="levelBackplateY">50</output>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelBackplateScale">Backplate Scale</label>
+                        <input type="range" min="0.5" max="4" step="0.1" value="0.9" class="slider" id="levelBackplateScale" oninput="updateLevelSetting('levelBackplateScale', parseFloat(this.value))">
+                        <output for="levelBackplateScale">0.9</output>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelStarScale">Star Scale</label>
+                        <input type="range" min="0.5" max="4" step="0.1" value="0.7" class="slider" id="levelStarScale" oninput="updateLevelSetting('levelStarScale', parseFloat(this.value))">
+                        <output for="levelStarScale">0.7</output>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelStarSpacing">Star Spacing</label>
+                        <input type="range" min="5" max="80" value="21" class="slider" id="levelStarSpacing" oninput="updateLevelSetting('levelStarSpacing', parseInt(this.value))">
+                        <output for="levelStarSpacing">21</output>
+                    </div>
+                    <div class="sliderForm">
+                        <label for="levelStarOffsetY">Star Y Offset</label>
+                        <input type="range" min="-50" max="50" value="-3" class="slider" id="levelStarOffsetY" oninput="updateLevelSetting('levelStarOffsetY', parseInt(this.value))">
+                        <output for="levelStarOffsetY">-3</output>
+                    </div>
+                </div>
+            </details>
+
             <!-- Collapsible: Positioning -->
             <details class="collapsible">
                 <summary>Positioning</summary>
