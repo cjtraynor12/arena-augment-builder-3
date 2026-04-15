@@ -1068,3 +1068,650 @@ body {
     border-top: 1px solid #333;
     padding-top: 10px;
 }
+
+/* ===== Timeline Fetcher ===== */
+.timeline-btn {
+    position: fixed;
+    bottom: 16px;
+    right: 60px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 18px;
+    border: 2px solid #555;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    z-index: 900;
+    transition: all 0.2s;
+}
+
+.timeline-btn:hover {
+    background: #2a2a4e;
+    color: white;
+    border-color: var(--accent);
+}
+
+.timeline-modal {
+    max-width: 760px;
+}
+
+.timeline-intro {
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+}
+
+.timeline-apikey-hint {
+    font-size: 12px;
+    color: #bcd3ff;
+    background: #1b2a44;
+    border: 1px solid #2a4066;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
+
+.timeline-apikey-hint a {
+    color: #7eb8ff;
+    text-decoration: underline;
+}
+
+.timeline-apikey-hint a:hover {
+    color: #b3d4ff;
+}
+
+.timeline-apikey-hint code {
+    background: #2a2a4e;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #f0c674;
+}
+
+.timeline-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.timeline-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.timeline-row label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.timeline-row input,
+.timeline-row select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.timeline-row-split {
+    flex-direction: row;
+    gap: 10px;
+}
+
+.timeline-row-split > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.timeline-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.timeline-endpoint-group {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.timeline-endpoint-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.timeline-status {
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    min-height: 16px;
+    margin-bottom: 10px;
+}
+
+.timeline-status:empty {
+    display: none;
+}
+
+.timeline-status.info  { background: #1b2a44; color: #9ec5ff; }
+.timeline-status.ok    { background: #143d22; color: #7fe29a; }
+.timeline-status.warn  { background: #3d3414; color: #ffd98a; }
+.timeline-status.error { background: #3d1414; color: #ff9a9a; }
+
+.timeline-match-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 320px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+.timeline-match-list:empty {
+    display: none;
+}
+
+.timeline-match-row {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    text-align: left;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.timeline-match-row:hover {
+    border-color: var(--accent);
+    background: #2a2a4e;
+}
+
+.preview-row {
+    display: grid;
+    grid-template-columns: 48px 120px 80px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.row-place {
+    font-weight: bold;
+    font-size: 13px;
+    padding: 2px 0;
+    text-align: center;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.row-place.pl-top { background: #3b5a2a; color: #d8ffb3; }
+.row-place.pl-mid { background: #3a3a6e; color: #c5d6ff; }
+.row-place.pl-bot { background: #4a2a2a; color: #ffd0d0; }
+.row-place-loading { background: transparent; color: var(--text-secondary); font-weight: normal; }
+
+.row-champ {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.row-loading {
+    font-weight: normal;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.row-kda {
+    font-family: monospace;
+    color: #9ec5ff;
+}
+
+.row-meta {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.row-id {
+    color: #555;
+    font-family: monospace;
+    font-size: 10px;
+}
+
+.row-error .row-meta {
+    color: #ff9a9a;
+}
+
+.timeline-output {
+    background: #0f0f1a;
+    border: 1px solid var(--border);
+    color: #d0d0e0;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    max-height: 50vh;
+    overflow: auto;
+    white-space: pre;
+    margin: 0;
+}
+
+.timeline-json-details {
+    margin-top: 10px;
+}
+
+.timeline-json-details > summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+    user-select: none;
+}
+
+.timeline-json-details > summary:hover {
+    color: var(--text-primary);
+}
+
+.timeline-summary {
+    margin-bottom: 10px;
+}
+
+.timeline-summary-header {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px 4px 0 0;
+    border-bottom: none;
+}
+
+.timeline-teams {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 0 0 4px 4px;
+    padding: 8px;
+    background: #15152a;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.timeline-team {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+}
+
+.timeline-team-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.timeline-team-place {
+    font-weight: bold;
+    font-size: 14px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    min-width: 32px;
+    text-align: center;
+}
+
+.timeline-team-place.place-top { background: #3b5a2a; color: #d8ffb3; }
+.timeline-team-place.place-bot { background: #4a2a2a; color: #ffd0d0; }
+
+.timeline-team-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.timeline-team-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.timeline-team-id {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.timeline-player {
+    display: flex;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 12px;
+    align-items: flex-start;
+}
+
+.timeline-player + .timeline-player {
+    border-top: 1px dashed #333;
+}
+
+.timeline-player-left {
+    min-width: 140px;
+    flex-shrink: 0;
+}
+
+.timeline-player-champ {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.timeline-player-name {
+    color: var(--text-secondary);
+    font-size: 11px;
+    word-break: break-all;
+}
+
+.timeline-player-kda {
+    color: #9ec5ff;
+    font-size: 11px;
+    font-family: monospace;
+}
+
+.timeline-player-augs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+}
+
+.timeline-aug {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: #e0d89e;
+}
+
+.timeline-aug-none {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* ===== Match Reference Accordion ===== */
+/* The outer <details> reuses the shared .collapsible styles from the controls
+   panel; these rules target the inner team/player/augment layout.
+   The controls-panel already has overflow-y: auto, so we don't cap the outer
+   match-ref-content here — otherwise its flex-column children (teams) get
+   shrunk to fit when one team opens, "squishing" the closed ones. */
+.match-ref-content > * {
+    flex-shrink: 0;
+}
+
+.match-ref-empty {
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 16px 8px;
+    font-size: 13px;
+}
+
+.match-ref-empty p {
+    margin: 0 0 10px 0;
+}
+
+.match-ref-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 8px 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.match-ref-id {
+    font-family: monospace;
+    color: var(--text-secondary);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.match-ref-dur {
+    color: var(--text-secondary);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.match-ref-change, .match-ref-clear {
+    padding: 2px 6px;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+/* The .btn class sets color:white but no background — on the Change button
+   (no btn-primary/success/danger modifier) this ends up as white-on-default
+   which is invisible. Pin it to the same dark surface the rest of the header
+   sits on. */
+.match-ref-change {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.match-ref-change:hover {
+    background-color: var(--bg-secondary);
+    border-color: var(--accent);
+}
+
+.match-ref-team {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+}
+
+.match-ref-team-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.match-ref-team-summary::-webkit-details-marker {
+    display: none;
+}
+
+.match-ref-team-summary::before {
+    content: '▶';
+    font-size: 9px;
+    color: var(--text-secondary);
+    width: 10px;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+
+.match-ref-team[open] > .match-ref-team-summary::before {
+    transform: rotate(90deg);
+}
+
+.match-ref-team-summary:hover {
+    background: var(--bg-secondary);
+}
+
+.match-ref-place {
+    font-weight: bold;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.match-ref-place.place-top { background: #3b5a2a; color: #d8ffb3; }
+.match-ref-place.place-bot { background: #4a2a2a; color: #ffd0d0; }
+
+.match-ref-team-icon {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.match-ref-team-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+
+.match-ref-team-champs {
+    display: flex;
+    gap: 3px;
+    margin-left: auto;
+    align-items: center;
+}
+
+.match-ref-champ {
+    object-fit: cover;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.match-ref-champ-small {
+    width: 22px;
+    height: 22px;
+}
+
+.match-ref-champ-medium {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+}
+
+.match-ref-team-body {
+    padding: 6px 8px 8px 8px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
+    /* Keep one expanded team from pushing the rest off-screen — scroll inside */
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.match-ref-player {
+    padding: 6px 0;
+}
+
+.match-ref-player + .match-ref-player {
+    border-top: 1px dashed var(--border);
+}
+
+.match-ref-player-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.match-ref-player-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.match-ref-player-champ {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.match-ref-player-name {
+    font-size: 10px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.match-ref-player-kda {
+    font-size: 10px;
+    color: #9ec5ff;
+    font-family: monospace;
+}
+
+.match-ref-augs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.match-ref-no-augs {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 11px;
+    padding: 4px 0;
+}
+
+/* Compact augment buttons for the match reference — the default 120x150
+   cards would overflow, so tighten them up so a full team fits on one view. */
+.match-ref-aug {
+    width: 60px;
+    height: 78px;
+    padding: 3px;
+}
+
+.match-ref-aug img {
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 3px auto;
+}
+
+.match-ref-aug span {
+    font-size: 9px;
+    line-height: 1.1;
+    -webkit-line-clamp: 2;
+}
+
+.match-ref-aug .insert-reference-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    line-height: 16px;
+    bottom: 2px;
+    right: 2px;
+}
+
+.match-ref-aug-unknown {
+    background: #2a1a1a;
+    border: 1px dashed #5a3a3a;
+    color: var(--text-secondary);
+}

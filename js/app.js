@@ -11,6 +11,8 @@ import {
 import { itemsDataArray, arenaItemsDataArray, itemModifiersDataArray, itemIconsBaseUrl, arenaItemIconsBaseUrl, itemModifiersBaseUrl, aramMayhemAugmentsBaseUrl } from './data/items.js';
 import { aram_mayhem_augments } from './data/aramAugments.js';
 import { presetManager } from './presetManager.js';
+import { initTimelineFetcher } from './timelineFetcher.js';
+import { initMatchReference, refreshMatchReference } from './matchReference.js';
 
 // ===== DRAG AND DROP MODULE =====
 function initializeDragDrop() {
@@ -1743,6 +1745,8 @@ async function init() {
     initializeDragDrop();
     initCollapsibleListeners();
     initTextFieldTracking();
+    initTimelineFetcher();
+    initMatchReference();
 
     // Initialize color table
     loadColorTable();
@@ -1788,6 +1792,9 @@ async function init() {
         } else {
             mergeAugmentImages();
         }
+        // Arena + champion data is what Match Reference needs to resolve
+        // augment IDs and champion portraits; refresh once both are available.
+        refreshMatchReference();
     });
 }
 
@@ -1827,6 +1834,7 @@ window.updateColorValue = updateColorValue;
 window.updateColorName = updateColorName;
 window.deleteColorRow = deleteColorRow;
 // Functions used by dynamically created elements (setAttribute onclick)
+window.insertAugmentReference = insertAugmentReference;
 window.setSelectedAugment = setSelectedAugment;
 window.setSelectedChampion = setSelectedChampion;
 window.setSelectedItem = setSelectedItem;

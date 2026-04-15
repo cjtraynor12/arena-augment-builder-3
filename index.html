@@ -139,6 +139,12 @@
                 </div>
             </div>
 
+            <!-- Collapsible: Match Reference -->
+            <details class="collapsible" id="matchRef">
+                <summary>Match Reference</summary>
+                <div id="matchRefContent" class="collapsible-content match-ref-content"></div>
+            </details>
+
             <!-- Collapsible: Augment Levels -->
             <details class="collapsible" id="levelsCollapsible">
                 <summary>Augment Levels</summary>
@@ -366,6 +372,65 @@
                 </div>
                 <div class="list" id="itemsList"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Timeline Fetcher Button & Overlay -->
+    <button class="timeline-btn" onclick="openTimelineOverlay()" title="Browse Arena matches via Riot API">API</button>
+    <div id="timelineOverlay" class="help-overlay">
+        <div class="help-modal timeline-modal">
+            <button class="help-close" onclick="closeTimelineOverlay()">&times;</button>
+            <h2>Arena Match Browser</h2>
+            <p class="timeline-intro">Enter a player&apos;s Riot ID to list their recent Arena matches, then click one to load it into the builder&apos;s <strong>Match Reference</strong> panel.</p>
+
+            <div class="timeline-apikey-hint">
+                <strong>Need an API key?</strong> Sign in at
+                <a href="https://developer.riotgames.com/" target="_blank" rel="noopener noreferrer">developer.riotgames.com</a>
+                with your Riot account. Your personal <em>Development Key</em> is shown on the dashboard &mdash; copy the <code>RGAPI-&hellip;</code> string and paste it below. Dev keys expire every 24&nbsp;hours, so you may need to regenerate it if requests start returning 403.
+            </div>
+
+            <div class="timeline-form">
+                <div class="timeline-row">
+                    <label for="timelineApiKey">API Key</label>
+                    <input type="password" id="timelineApiKey" placeholder="RGAPI-..." autocomplete="off">
+                </div>
+                <div class="timeline-row">
+                    <label for="timelineRegion">Region</label>
+                    <select id="timelineRegion"></select>
+                </div>
+                <div class="timeline-row timeline-row-split">
+                    <div>
+                        <label for="timelineGameName">Game Name</label>
+                        <input type="text" id="timelineGameName" placeholder="SomePlayer">
+                    </div>
+                    <div>
+                        <label for="timelineTagLine">Tag</label>
+                        <input type="text" id="timelineTagLine" placeholder="NA1">
+                    </div>
+                </div>
+                <div class="timeline-row timeline-row-split">
+                    <div>
+                        <label for="timelineQueue">Queue</label>
+                        <select id="timelineQueue"></select>
+                    </div>
+                    <div>
+                        <label for="timelineCount">Count</label>
+                        <input type="number" id="timelineCount" min="1" max="100" value="10">
+                    </div>
+                </div>
+                <div class="timeline-actions">
+                    <button type="button" class="btn btn-primary" onclick="findMatches()">Find Matches</button>
+                    <button type="button" class="btn btn-sm" onclick="copyTimelineJson()">Copy JSON</button>
+                </div>
+            </div>
+
+            <div id="timelineStatus" class="timeline-status"></div>
+            <div id="timelineMatchList" class="timeline-match-list"></div>
+            <div id="timelineSummary" class="timeline-summary" style="display:none;"></div>
+            <details class="timeline-json-details">
+                <summary>Raw JSON</summary>
+                <pre id="timelineOutput" class="timeline-output" style="display:none;"></pre>
+            </details>
         </div>
     </div>
 
