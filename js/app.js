@@ -936,6 +936,13 @@ function setSelectedAugment(id) {
     }
     settings['shinyFrame'] = false;
 
+    // Sync level tier to match the augment's rarity
+    settings['levelTier'] = getTierKeyword(rarity);
+    const levelTierSelect = document.getElementById('levelTier');
+    if (levelTierSelect) {
+        levelTierSelect.value = settings['levelTier'];
+    }
+
     settings['augmentTitle'] = settings['selectedAugment']['name'];
     document.getElementById('titleInput').value = settings['augmentTitle'];
     settings['augmentDescription'] = populateDescriptionVariables(settings['selectedAugment']);
