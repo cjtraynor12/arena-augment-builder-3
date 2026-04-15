@@ -55,25 +55,36 @@
                         <div class="vertical-slider-group">
                             <div class="vertical-slider-label">Icon Y</div>
                             <input type="range" min="0" max="600" value="40" class="vertical-slider" id="iconYOffset" oninput="updateCanvasVariable(parseInt(this.value), 'iconYOffset')" orient="vertical">
+                            <output class="vertical-slider-value" for="iconYOffset">40</output>
                         </div>
                         <div class="vertical-slider-group">
                             <div class="vertical-slider-label">Title Y</div>
                             <input type="range" min="0" max="600" value="324" class="vertical-slider" id="titleYOffset" oninput="updateCanvasVariable(parseInt(this.value), 'titleYOffset')" orient="vertical">
+                            <output class="vertical-slider-value" for="titleYOffset">324</output>
                         </div>
                         <div class="vertical-slider-group">
                             <div class="vertical-slider-label">Desc Y</div>
                             <input type="range" min="0" max="600" value="364" class="vertical-slider" id="descriptionYOffset" oninput="updateCanvasVariable(parseInt(this.value), 'descriptionYOffset')" orient="vertical">
+                            <output class="vertical-slider-value" for="descriptionYOffset">364</output>
                         </div>
                     </div>
                 </div>
                 <div class="form-controls">
                     <div class="form-row">
                         <label for="descriptionInput">Description</label>
-                        <textarea name="descriptionInput" id="descriptionInput" placeholder="Enter description..." oninput="updateCanvasVariable(this.value, 'augmentDescription')"></textarea>
+                        <div class="text-input-wrapper">
+                            <textarea name="descriptionInput" id="descriptionInput" placeholder="Enter description..." oninput="updateCanvasVariable(this.value, 'augmentDescription')"></textarea>
+                            <div class="ghost-cursor-mirror" aria-hidden="true"></div>
+                            <div class="ghost-cursor-marker" aria-hidden="true"></div>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label for="titleInput">Title</label>
-                        <textarea name="titleInput" id="titleInput" placeholder="Enter title..." oninput="updateCanvasVariable(this.value, 'augmentTitle')"></textarea>
+                        <div class="text-input-wrapper">
+                            <textarea name="titleInput" id="titleInput" placeholder="Enter title..." oninput="updateCanvasVariable(this.value, 'augmentTitle')"></textarea>
+                            <div class="ghost-cursor-mirror" aria-hidden="true"></div>
+                            <div class="ghost-cursor-marker" aria-hidden="true"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -133,20 +144,20 @@
                 <summary>Augment Levels</summary>
                 <div class="collapsible-content">
                     <div class="form-row">
-                        <label for="levelMode">Level Mode</label>
-                        <select id="levelMode" onchange="updateLevelSetting('levelMode', this.value)">
-                            <option value="off" selected>Off</option>
-                            <option value="2">2-Star</option>
-                            <option value="3">3-Star</option>
-                        </select>
+                        <label>Level Mode</label>
+                        <div class="btn-group" id="levelModeGroup">
+                            <button type="button" class="btn-toggle active" data-value="off" onclick="updateLevelSetting('levelMode', 'off')">Off</button>
+                            <button type="button" class="btn-toggle" data-value="2" onclick="updateLevelSetting('levelMode', '2')">&#x2B50;&#x2B50;</button>
+                            <button type="button" class="btn-toggle" data-value="3" onclick="updateLevelSetting('levelMode', '3')">&#x2B50;&#x2B50;&#x2B50;</button>
+                        </div>
                     </div>
                     <div class="form-row">
-                        <label for="levelTier">Tier</label>
-                        <select id="levelTier" onchange="updateLevelSetting('levelTier', this.value)">
-                            <option value="silver">Silver</option>
-                            <option value="gold" selected>Gold</option>
-                            <option value="prismatic">Prismatic</option>
-                        </select>
+                        <label>Tier</label>
+                        <div class="btn-group" id="levelTierGroup">
+                            <button type="button" class="btn-toggle tier-silver" data-value="silver" onclick="updateLevelSetting('levelTier', 'silver')">Silver</button>
+                            <button type="button" class="btn-toggle tier-gold active" data-value="gold" onclick="updateLevelSetting('levelTier', 'gold')">Gold</button>
+                            <button type="button" class="btn-toggle tier-prismatic" data-value="prismatic" onclick="updateLevelSetting('levelTier', 'prismatic')">Prismatic</button>
+                        </div>
                     </div>
                     <div class="sliderForm">
                         <label for="levelCurrent">Filled Stars</label>
@@ -227,7 +238,7 @@
             <details class="collapsible" id="iconsCollapsible">
                 <summary>Icons</summary>
                 <div class="collapsible-content">
-                    <div class="icon-hint">Click an icon to insert it at your cursor position in the description</div>
+                    <div class="icon-hint">Click an icon to insert it at your cursor position in the highlighted field (Title or Description)</div>
                     <div class="icon-search-row">
                         <input type="text" id="iconSearch" placeholder="Search icons..." oninput="filterIcons(this.value)">
                         <button onclick="clearIconSearch()">Clear</button>

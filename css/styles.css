@@ -54,6 +54,55 @@ body {
 
 .btn-full { width: 100%; }
 
+/* ===== Button Toggle Groups (Level Mode / Tier) ===== */
+.btn-group {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-toggle {
+    flex: 1;
+    border: 2px solid var(--border);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    opacity: 0.55;
+    transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+
+.btn-toggle:hover {
+    opacity: 0.85;
+}
+
+.btn-toggle:active {
+    transform: translateY(1px);
+}
+
+.btn-toggle.active {
+    opacity: 1;
+    border-color: #fff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+}
+
+.tier-silver {
+    background-color: #b8b8c4;
+    color: #1a1a2e;
+}
+
+.tier-gold {
+    background-color: #e0b53a;
+    color: #2b1d00;
+}
+
+.tier-prismatic {
+    background: linear-gradient(135deg, #9fd5ff 0%, #d4a5ff 50%, #ffd6a8 100%);
+    color: #1a1a2e;
+}
+
 /* ===== Main Grid Layout ===== */
 .app-container {
     display: grid;
@@ -340,10 +389,11 @@ body {
     width: 100%;
     padding: 6px 8px;
     border-radius: 4px;
-    border: none;
+    border: 2px solid transparent;
     font-family: inherit;
     font-size: 13px;
     resize: vertical;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 #titleInput {
@@ -352,6 +402,49 @@ body {
 
 #descriptionInput {
     height: 150px;
+}
+
+/* ===== Text Input Wrapper (for ghost cursor + active highlight) ===== */
+.text-input-wrapper {
+    position: relative;
+}
+
+.text-input-wrapper.active-target #descriptionInput,
+.text-input-wrapper.active-target #titleInput {
+    border-color: var(--accent);
+    box-shadow: 0 0 6px rgba(0, 123, 255, 0.45);
+}
+
+.ghost-cursor-mirror {
+    position: absolute;
+    top: 0;
+    left: 0;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    color: transparent;
+}
+
+.ghost-cursor-marker {
+    position: absolute;
+    width: 2px;
+    background-color: var(--accent);
+    pointer-events: none;
+    display: none;
+    border-radius: 1px;
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.8);
+    animation: ghost-cursor-blink 1s steps(2, start) infinite;
+}
+
+.text-input-wrapper.active-target .ghost-cursor-marker {
+    display: block;
+}
+
+@keyframes ghost-cursor-blink {
+    to { opacity: 0.2; }
 }
 
 /* ===== Action Row (Save + Presets) ===== */
@@ -485,16 +578,34 @@ body {
 }
 
 .sliderForm {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 4px;
+    column-gap: 8px;
+    row-gap: 2px;
     width: 100%;
 }
 
 .sliderForm label {
+    grid-column: 1;
+    grid-row: 1;
     font-weight: bold;
     font-size: 12px;
+}
+
+.sliderForm output {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 12px;
+    text-align: right;
+    min-width: 28px;
+    color: var(--text-secondary);
+}
+
+.sliderForm .slider {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
 }
 
 /* ===== Checkbox Row ===== */
@@ -668,6 +779,16 @@ body {
     font-weight: bold;
     color: white;
     text-align: center;
+}
+
+.vertical-slider-value {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 2px;
+    min-width: 28px;
 }
 
 /* ===== Responsive Design ===== */

@@ -271,40 +271,96 @@ function clearIconSearch() {
     filterIcons('');
 }
 
-function insertIconAtCursor(keyword) {
-    const textarea = document.getElementById('descriptionInput');
-    const iconTag = `<img${keyword}>`;
+// ===== ACTIVE TEXT FIELD TRACKING + GHOST CURSOR =====
+// Tracks which textarea (titleInput / descriptionInput) was last interacted with,
+// so icon insertions land in the right place. Also paints a "ghost" caret marker
+// on the active field even when focus has moved elsewhere (e.g. to the icon search).
+const TEXT_FIELDS = {
+    titleInput: 'augmentTitle',
+    descriptionInput: 'augmentDescription'
+};
+let activeTextField = 'descriptionInput';
 
-    // Get current cursor position
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-
-    // Insert the icon tag at cursor position
-    const newText = text.substring(0, start) + iconTag + text.substring(end);
-    textarea.value = newText;
-
-    // Move cursor to after the inserted text
-    const newCursorPos = start + iconTag.length;
-    textarea.setSelectionRange(newCursorPos, newCursorPos);
-
-    // Keep focus on textarea
-    textarea.focus();
-
-    // Update the canvas with the new description
-    updateCanvasVariable(newText, 'augmentDescription');
+function setActiveTextField(textareaId) {
+    if (!TEXT_FIELDS[textareaId]) return;
+    activeTextField = textareaId;
+    Object.keys(TEXT_FIELDS).forEach(id => {
+        const ta = document.getElementById(id);
+        if (!ta) return;
+        const wrapper = ta.parentElement;
+        if (wrapper && wrapper.classList.contains('text-input-wrapper')) {
+            wrapper.classList.toggle('active-target', id === textareaId);
+        }
+    });
+    updateGhostCursor(textareaId);
 }
 
-function insertAugmentReference(name, iconUrl, tierKeyword) {
-    const textarea = document.getElementById('descriptionInput');
-    let insertText = '';
-    if (iconUrl) {
-        const keyword = sanitizeKeyword(name);
-        inlineImageUrlMap[keyword] = iconUrl;
-        insertText = `<img${keyword}><${tierKeyword}>${name}</${tierKeyword}>\n`;
-    } else {
-        insertText = `<${tierKeyword}>${name}</${tierKeyword}>\n`;
-    }
+// Compute caret pixel coords by mirroring the textarea's wrapped text in a hidden div.
+function updateGhostCursor(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (!textarea) return;
+    const wrapper = textarea.parentElement;
+    if (!wrapper) return;
+    const mirror = wrapper.querySelector('.ghost-cursor-mirror');
+    const marker = wrapper.querySelector('.ghost-cursor-marker');
+    if (!mirror || !marker) return;
+
+    const cs = window.getComputedStyle(textarea);
+    const propsToCopy = [
+        'boxSizing', 'width', 'height',
+        'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+        'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+        'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
+        'lineHeight', 'fontFamily', 'textAlign', 'textTransform', 'textIndent',
+        'letterSpacing', 'wordSpacing', 'tabSize'
+    ];
+    propsToCopy.forEach(p => { mirror.style[p] = cs[p]; });
+    mirror.style.position = 'absolute';
+    mirror.style.top = textarea.offsetTop + 'px';
+    mirror.style.left = textarea.offsetLeft + 'px';
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordWrap = 'break-word';
+    mirror.style.overflowWrap = 'break-word';
+    mirror.style.overflow = 'hidden';
+
+    const pos = textarea.selectionStart;
+    const value = textarea.value;
+    // Use a non-breaking-space sentinel so the span has measurable bounds even at end-of-text.
+    mirror.textContent = value.substring(0, pos);
+    const span = document.createElement('span');
+    span.textContent = value.substring(pos) || '\u200b';
+    mirror.appendChild(span);
+
+    const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+    marker.style.top = (textarea.offsetTop + span.offsetTop - textarea.scrollTop) + 'px';
+    marker.style.left = (textarea.offsetLeft + span.offsetLeft - textarea.scrollLeft) + 'px';
+    marker.style.height = lineHeight + 'px';
+}
+
+function initTextFieldTracking() {
+    Object.keys(TEXT_FIELDS).forEach(id => {
+        const ta = document.getElementById(id);
+        if (!ta) return;
+        const update = () => setActiveTextField(id);
+        const refreshIfActive = () => {
+            if (activeTextField === id) updateGhostCursor(id);
+        };
+        ta.addEventListener('focus', update);
+        ta.addEventListener('click', update);
+        ta.addEventListener('keyup', update);
+        ta.addEventListener('select', update);
+        ta.addEventListener('input', refreshIfActive);
+        ta.addEventListener('scroll', refreshIfActive);
+    });
+    // Recalculate ghost on window resize (text wrapping may shift)
+    window.addEventListener('resize', () => updateGhostCursor(activeTextField));
+    setActiveTextField('descriptionInput');
+}
+
+function insertAtActiveCursor(insertText, opts = {}) {
+    const textarea = document.getElementById(activeTextField);
+    if (!textarea) return;
+    const settingKey = TEXT_FIELDS[activeTextField];
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const text = textarea.value;
@@ -312,8 +368,27 @@ function insertAugmentReference(name, iconUrl, tierKeyword) {
     textarea.value = newText;
     const newCursorPos = start + insertText.length;
     textarea.setSelectionRange(newCursorPos, newCursorPos);
-    textarea.focus();
-    updateCanvasVariable(newText, 'augmentDescription');
+    if (opts.focus !== false) textarea.focus();
+    updateCanvasVariable(newText, settingKey);
+    updateGhostCursor(activeTextField);
+}
+
+function insertIconAtCursor(keyword) {
+    insertAtActiveCursor(`<img${keyword}>`);
+}
+
+function insertAugmentReference(name, iconUrl, tierKeyword) {
+    // References get a trailing newline in the description but not in the title.
+    const trailing = activeTextField === 'descriptionInput' ? '\n' : '';
+    let insertText;
+    if (iconUrl) {
+        const keyword = sanitizeKeyword(name);
+        inlineImageUrlMap[keyword] = iconUrl;
+        insertText = `<img${keyword}><${tierKeyword}>${name}</${tierKeyword}>${trailing}`;
+    } else {
+        insertText = `<${tierKeyword}>${name}</${tierKeyword}>${trailing}`;
+    }
+    insertAtActiveCursor(insertText);
 }
 
 // ===== COLOR TABLE MANAGEMENT =====
@@ -938,10 +1013,7 @@ function setSelectedAugment(id) {
 
     // Sync level tier to match the augment's rarity
     settings['levelTier'] = getTierKeyword(rarity);
-    const levelTierSelect = document.getElementById('levelTier');
-    if (levelTierSelect) {
-        levelTierSelect.value = settings['levelTier'];
-    }
+    syncLevelButtonGroup('levelTier', settings['levelTier']);
 
     settings['augmentTitle'] = settings['selectedAugment']['name'];
     document.getElementById('titleInput').value = settings['augmentTitle'];
@@ -1410,7 +1482,16 @@ function updateLevelSetting(key, value) {
             output.value = value;
         }
     }
+    syncLevelButtonGroup(key, value);
     mergeAugmentImages();
+}
+
+function syncLevelButtonGroup(key, value) {
+    const group = document.getElementById(key + 'Group');
+    if (!group) return;
+    group.querySelectorAll('.btn-toggle').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.value === String(value));
+    });
 }
 
 function clearCustomFrame() {
@@ -1661,6 +1742,7 @@ async function init() {
 
     initializeDragDrop();
     initCollapsibleListeners();
+    initTextFieldTracking();
 
     // Initialize color table
     loadColorTable();
