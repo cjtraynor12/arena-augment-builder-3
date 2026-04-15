@@ -180,10 +180,13 @@
                             <button type="button" class="btn-toggle tier-prismatic" data-value="prismatic" onclick="updateLevelSetting('levelTier', 'prismatic')">Prismatic</button>
                         </div>
                     </div>
-                    <div class="sliderForm">
-                        <label for="levelCurrent">Filled Stars</label>
-                        <input type="range" min="1" max="3" value="1" class="slider" id="levelCurrent" oninput="updateLevelSetting('levelCurrent', parseInt(this.value))">
-                        <output for="levelCurrent">1</output>
+                    <div class="form-row">
+                        <label>Filled Stars</label>
+                        <div class="btn-group" id="levelCurrentGroup">
+                            <button type="button" class="btn-toggle active" data-value="1" onclick="updateLevelSetting('levelCurrent', 1)">&#x2605;&#x2606;&#x2606;</button>
+                            <button type="button" class="btn-toggle" data-value="2" onclick="updateLevelSetting('levelCurrent', 2)">&#x2605;&#x2605;&#x2606;</button>
+                            <button type="button" class="btn-toggle" data-value="3" onclick="updateLevelSetting('levelCurrent', 3)">&#x2605;&#x2605;&#x2605;</button>
+                        </div>
                     </div>
                     <div class="sliderForm">
                         <label for="levelBackplateX">Backplate X</label>

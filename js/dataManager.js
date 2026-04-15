@@ -211,9 +211,9 @@ export function getStatIconUrl(keyword) {
 // `starIndex` (optional, 1–3) forces single-value rendering at that index
 // across every dataValues array — see formatArrayValue in calculationEngine.
 // Omit (or pass undefined) for the legacy min-max range behavior used in the
-// picker grid / preview. The mapping 1★→1, 2★→2, 3★→3 is set by the Augment
-// Levels slider in app.js (settings.levelCurrent); values outside [1, 3] are
-// treated as "no specific star" and fall back to the range.
+// picker grid / preview. The mapping 1★→1, 2★→2, 3★→3 is set by the Filled
+// Stars button group in app.js (settings.levelCurrent); values outside
+// [1, 3] are treated as "no specific star" and fall back to the range.
 export function populateDescriptionVariables(augment, starIndex) {
     let description = augment['desc'];
     const dataValues = augment['dataValues'] || {};

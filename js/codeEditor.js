@@ -31,7 +31,8 @@ import {
 } from '@codemirror/language';
 import { html } from '@codemirror/lang-html';
 import {
-    autocompletion, completionKeymap, closeBracketsKeymap, closeBrackets
+    autocompletion, completionKeymap, closeBracketsKeymap, closeBrackets,
+    startCompletion
 } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
 
@@ -89,6 +90,57 @@ function applyInsert(text, cursorOffset) {
     };
 }
 
+// Scaffold-aware apply for color tags. If the cursor sits inside a
+// `<>...</>` scaffold placed by wrapSelectionWithTag, fill both halves with
+// the tag name in a single transaction (single undo step). Otherwise behave
+// like the legacy path: insert `<tag></tag>` and park the cursor between the
+// two tags so the user can type content immediately.
+function applyColorTag(tagName) {
+    return (view, _completion, from, to) => {
+        const rest = view.state.doc.sliceString(
+            to,
+            Math.min(to + 500, view.state.doc.length)
+        );
+        // Non-greedy up to the first `</>`. The scaffold contains no literal
+        // `</>` by construction, so this only matches the scaffold we set up.
+        const wrap = rest.match(/^>([\s\S]*?)<\/>/);
+        if (wrap) {
+            const content = wrap[1];
+            const newText = `${tagName}>${content}</${tagName}>`;
+            view.dispatch({
+                changes: { from, to: to + wrap[0].length, insert: newText },
+                selection: { anchor: from + newText.length }
+            });
+            return;
+        }
+        const insert = `${tagName}></${tagName}>`;
+        view.dispatch({
+            changes: { from, to, insert },
+            selection: { anchor: from + tagName.length + 1 }
+        });
+    };
+}
+
+// Input handler: typing `<` while text is selected wraps the selection in a
+// `<>selection</>` scaffold instead of replacing it, and opens autocomplete
+// so the user can pick a color tag. The scaffold-aware apply in
+// applyColorTag then fills both halves atomically (single undo step). If
+// there's no selection, or the user has multiple cursors, the `<` falls
+// through to default behavior.
+const wrapOnAngleBracket = EditorView.inputHandler.of((view, from, to, text) => {
+    if (text !== '<') return false;
+    if (from === to) return false;
+    if (view.state.selection.ranges.length !== 1) return false;
+    const content = view.state.doc.sliceString(from, to);
+    view.dispatch({
+        changes: { from, to, insert: `<>${content}</>` },
+        selection: { anchor: from + 1 },
+        userEvent: 'input.type'
+    });
+    startCompletion(view);
+    return true;
+});
+
 // ---- Completion source for Arena-specific tags ----
 // Triggered inside `<…` or `</…`. Reads the live maps so newly-inserted
 // inline refs (inlineImageUrlMap) and newly-added color table entries
@@ -132,17 +184,15 @@ function arenaCompletions(context) {
             detail: 'line break',
             apply: applyInsert('br>')
         });
-        // Color tags — insert matched pair `<color></color>` with cursor
-        // between so the user can type content immediately.
+        // Color tags — scaffold-aware apply: wraps the selection if invoked
+        // from the Alt+W command, otherwise inserts a fresh `<color></color>`
+        // pair with the cursor between.
         for (const k of Object.keys(colorTable)) {
-            const insert = `${k}></${k}>`;
-            // Cursor position: after the first closing angle bracket of the
-            // open tag, i.e. `<color>|</color>`.
             opts.push({
                 label: k,
                 type: 'type',
                 detail: 'color',
-                apply: applyInsert(insert, k.length + 1)
+                apply: applyColorTag(k)
             });
         }
     } else {
@@ -251,6 +301,7 @@ function baseExtensions({ singleLine, onChange }) {
         highlightActiveLine(),
         rectangularSelection(),
         crosshairCursor(),
+        wrapOnAngleBracket,
         keymap.of([
             ...closeBracketsKeymap,
             ...defaultKeymap,

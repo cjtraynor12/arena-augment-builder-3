@@ -967,21 +967,31 @@ function getDescriptionStarIndex() {
     return n;
 }
 
+// Disable Filled Stars buttons that exceed the current levelMode cap. When
+// mode is 'off' every button is disabled (setting has no visible effect);
+// when mode is '2' the 3★ button is disabled; when mode is '3' all three
+// are enabled. Does NOT touch .active — that's syncLevelButtonGroup's job.
+function syncFilledStarsDisabled() {
+    const group = document.getElementById('levelCurrentGroup');
+    if (!group) return;
+    const mode = settings.levelMode;
+    const cap = (mode === '2' || mode === '3') ? parseInt(mode, 10) : 0;
+    group.querySelectorAll('.btn-toggle').forEach((btn) => {
+        const val = parseInt(btn.dataset.value, 10);
+        btn.disabled = val > cap;
+    });
+}
+
 // Apply the auto-detected star config to the Augment Levels panel: turn it
-// on/off, sync the mode/tier toggle buttons, reset the Filled Stars slider
-// to 1, and update its max to match the augment's cap.
+// on/off, sync the Level Mode + Filled Stars toggle buttons, and reset
+// Filled Stars to 1.
 function applyAugmentStarConfig(augment) {
     const { maxLevel, usesStars } = getAugmentStarConfig(augment);
     settings.levelMode = usesStars ? String(maxLevel) : 'off';
     settings.levelCurrent = 1;
     syncLevelButtonGroup('levelMode', settings.levelMode);
-    const slider = document.getElementById('levelCurrent');
-    if (slider) {
-        slider.max = String(Math.max(2, maxLevel));
-        slider.value = '1';
-        const output = slider.nextElementSibling;
-        if (output && output.tagName === 'OUTPUT') output.value = '1';
-    }
+    syncLevelButtonGroup('levelCurrent', settings.levelCurrent);
+    syncFilledStarsDisabled();
 }
 
 function setSelectedAugment(id) {
@@ -1537,11 +1547,23 @@ function updateLevelSetting(key, value) {
     }
     syncLevelButtonGroup(key, value);
 
+    // Changing Level Mode affects which Filled Stars buttons are valid.
+    // Clamp levelCurrent to the new cap (e.g. switching 3★ → 2★ while 3
+    // was selected), and refresh the disabled state on the 3★ button.
+    if (key === 'levelMode') {
+        const cap = (value === '2' || value === '3') ? parseInt(value, 10) : 0;
+        if (cap > 0 && settings.levelCurrent > cap) {
+            settings.levelCurrent = cap;
+            syncLevelButtonGroup('levelCurrent', cap);
+        }
+        syncFilledStarsDisabled();
+    }
+
     // Star-index changes need to re-run the description pipeline so numbers
     // like "Gain @AP@ AP" swap from "60-180" (range) or "60" (1★) to "120"
     // (2★) etc. Only applies to selected JSON augments — custom augments,
     // items, champions, etc. carry user-authored descriptions we don't want
-    // to clobber on every slider tick.
+    // to clobber on every tick.
     if ((key === 'levelMode' || key === 'levelCurrent') && settings['selectedAugment']) {
         settings['augmentDescription'] = populateDescriptionVariables(
             settings['selectedAugment'],
@@ -1841,6 +1863,10 @@ async function init() {
     const currentPresetName = presetManager.getCurrentPresetName();
     presetManager.applyPreset(currentPresetName, settings);
     syncFontUI();
+
+    // Filled Stars starts disabled until an augment with MaxLevel is picked
+    // (or the user toggles Level Mode on manually). Reflect that on page load.
+    syncFilledStarsDisabled();
 
     let p1 = getArenaJson();
     let p2 = getChampionJson();

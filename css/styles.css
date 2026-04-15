@@ -96,6 +96,16 @@ body {
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
 }
 
+.btn-toggle:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-toggle:disabled:hover {
+    opacity: 0.25;
+}
+
 .tier-silver {
     background-color: #b8b8c4;
     color: #1a1a2e;
