@@ -1021,8 +1021,8 @@ function setSelectedAugment(id) {
             // set beyond silver/gold/prismatic. It uses its own frame and
             // background. Users can still pick a tier-specific goh variant
             // (Gold/Prismatic/Silver) from the Frame dropdown.
-            settings['selectedFrame'] = borderImages['augmentcard_frame_goh_arena_2026_s2'];
-            settings['selectedBackground'] = borderImages['augmentcard_bg_goh_arena_2026_s2'];
+            settings['selectedFrame'] = borderImages['augmentcard_frame_goh'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg_goh'];
             break;
         default:
             settings['selectedFrame'] = borderImages['augmentcard_bg'];

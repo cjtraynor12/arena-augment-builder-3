@@ -621,11 +621,11 @@ function drawLevelOnCanvas(ctx) {
   const filledStars = Math.min(settings.levelCurrent || 1, totalStars);
 
   const backplateUrl =
-    levelStarBaseUrl + `levelstar_${tier}_backplate.arena_2026_s2.png`;
+    levelStarBaseUrl + `levelstar_${tier}_backplate.png`;
   const currentUrl =
-    levelStarBaseUrl + `levelstar_${tier}_current.arena_2026_s2.png`;
+    levelStarBaseUrl + `levelstar_${tier}_current.png`;
   const inactiveUrl =
-    levelStarBaseUrl + `levelstar_${tier}_inactive.arena_2026_s2.png`;
+    levelStarBaseUrl + `levelstar_${tier}_inactive.png`;
 
   return Promise.all([
     loadLevelImage(backplateUrl),
