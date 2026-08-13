@@ -520,8 +520,21 @@ function populatePresetDropdown() {
 
 function selectPreset(presetName) {
     if (presetManager.applyPreset(presetName, settings)) {
+        normalizeLegacyAssetNames();
         syncFontUI();
         mergeAugmentImages();
+    }
+}
+
+// CommunityDragon dropped the ".arena_2026_s2" infix from the GoH / remove
+// frame, background, and levelstar filenames (August 2026). Saved presets can
+// still carry the old dotted names, so strip the infix before they are used
+// to build URLs or sync dropdowns.
+function normalizeLegacyAssetNames() {
+    for (const key of ['selectedFrame', 'selectedBackground']) {
+        if (typeof settings[key] === 'string') {
+            settings[key] = settings[key].replace('.arena_2026_s2', '');
+        }
     }
 }
 
@@ -1021,8 +1034,8 @@ function setSelectedAugment(id) {
             // set beyond silver/gold/prismatic. It uses its own frame and
             // background. Users can still pick a tier-specific goh variant
             // (Gold/Prismatic/Silver) from the Frame dropdown.
-            settings['selectedFrame'] = borderImages['augmentcard_frame_goh_arena_2026_s2'];
-            settings['selectedBackground'] = borderImages['augmentcard_bg_goh_arena_2026_s2'];
+            settings['selectedFrame'] = borderImages['augmentcard_frame_goh'];
+            settings['selectedBackground'] = borderImages['augmentcard_bg_goh'];
             break;
         default:
             settings['selectedFrame'] = borderImages['augmentcard_bg'];
@@ -1164,6 +1177,7 @@ async function setSelectedCustomAugment(index) {
     Object.keys(selected).forEach(key => {
         settings[key] = selected[key];
     });
+    normalizeLegacyAssetNames();
 
     // Handle loading image from IndexedDB
     if (selected.imageId) {
@@ -1521,14 +1535,13 @@ function updateFrameVariable(value) {
 }
 
 // Reverse-lookup: given a filename in `settings.selectedFrame`, find the
-// `borderImages` key that maps to it. Needed because dropdown option values
-// are keys (no `.png`, underscores only) but filenames can contain dots
-// (e.g. `augmentcard_frame_goh.arena_2026_s2.png`) so a naive
-// `.replace('.png','')` produces a value that doesn't match any option.
+// `borderImages` key that maps to it. Strips the legacy ".arena_2026_s2"
+// infix first so filenames from old saved presets still match.
 function frameFilenameToKey(filename) {
     if (!filename) return '';
-    const found = Object.entries(borderImages).find(([, f]) => f === filename);
-    return found ? found[0] : filename.replace('.png', '');
+    const normalized = filename.replace('.arena_2026_s2', '');
+    const found = Object.entries(borderImages).find(([, f]) => f === normalized);
+    return found ? found[0] : normalized.replace('.png', '');
 }
 
 function changeBackground(value) {
