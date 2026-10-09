@@ -6,8 +6,9 @@ import {
     communityDragonBaseUrl, baseSquarePortraitPath, augmentFrameBaseUrl,
     arenaJsonData, championJsonData, getAugmentData, getChampionData,
     imageKeywordMap, inlineImageUrlMap, getStatIconUrl, sanitizeKeyword, getTierKeyword,
-    compareNames, populateDescriptionVariables
+    compareNames, populateDescriptionVariables, mergeArenaAugments
 } from './dataManager.js';
+import { loadModeAugments, getStringtable } from './modeAugments.js';
 import { itemsDataArray, arenaItemsDataArray, itemModifiersDataArray, itemIconsBaseUrl, arenaItemIconsBaseUrl, itemModifiersBaseUrl, aramMayhemAugmentsBaseUrl } from './data/items.js';
 import { aram_mayhem_augments } from './data/aramAugments.js';
 import { presetManager } from './presetManager.js';
@@ -587,9 +588,14 @@ function deleteCurrentPreset() {
 }
 
 // ===== ARAM AUGMENTS =====
+// The ARAM tab starts with the legacy icon-only list from data/aramAugments.js
+// and is replaced by full augment objects (name, description, numbers) built
+// from kiwi.bin.json once modeAugments.js loads them. Those select through
+// setSelectedAugment(id, 'aram') exactly like Arena augments. If kiwi data
+// can't be loaded, the legacy list stays.
 let aramAugmentsData = null;
 
-function createAramAugmentsData() {
+function createLegacyAramAugmentsData() {
     aramAugmentsData = Object.entries(aram_mayhem_augments).map(([filename, displayName], index) => {
         return {
             id: index + 1,
@@ -600,7 +606,7 @@ function createAramAugmentsData() {
     }).sort(compareNames);
 }
 
-function createAramAugmentButton(augmentData) {
+function createLegacyAramAugmentButton(augmentData) {
     const container = document.createElement("div");
     container.setAttribute("class", "augmentButton");
     container.setAttribute("onclick", "setSelectedAramAugment('" + augmentData['filename'] + "')");
@@ -628,14 +634,19 @@ function createAramAugmentButton(augmentData) {
     return container;
 }
 
-function displayAramAugments() {
-    if (!aramAugmentsData) {
-        createAramAugmentsData();
-    }
+function displayLegacyAramAugments() {
+    createLegacyAramAugmentsData();
 
     aramAugmentsData.map((augmentData) => {
-        augmentData['element'] = createAramAugmentButton(augmentData);
+        augmentData['element'] = createLegacyAramAugmentButton(augmentData);
         return augmentData;
+    });
+}
+
+function displayAramAugments(augments) {
+    aramAugmentsData = [...augments].sort(compareNames);
+    aramAugmentsData.forEach((augmentData) => {
+        augmentData['element'] = createAugmentButton(augmentData, 'aram');
     });
 }
 
@@ -839,10 +850,12 @@ function setDefaultDescriptionFont() {
     syncFontUI();
 }
 
-function createAugmentButton(augmentData) {
+// `source` names the list the augment lives in ('arena' or 'aram'), so the
+// click handler can look it up again.
+function createAugmentButton(augmentData, source = 'arena') {
     const container = document.createElement("div");
     container.setAttribute("class", "augmentButton");
-    container.setAttribute("onclick", "setSelectedAugment(" + augmentData['id'] + ")");
+    container.setAttribute("onclick", "setSelectedAugment(" + augmentData['id'] + ", '" + source + "')");
 
     const augmentName = document.createElement("span");
     augmentName.innerText = augmentData['name'];
@@ -1007,9 +1020,15 @@ function applyAugmentStarConfig(augment) {
     syncFilledStarsDisabled();
 }
 
-function setSelectedAugment(id) {
-    const currentArenaJsonData = arenaJsonData;
-    settings['selectedAugment'] = currentArenaJsonData.filter((e) => e['id'] === id)[0];
+let selectedAugmentSource = 'arena';
+
+function setSelectedAugment(id, source = 'arena') {
+    const list = source === 'aram' ? aramAugmentsData : arenaJsonData;
+    const augment = (list || []).find((e) => e['id'] === id);
+    if (!augment) return;
+    selectedAugmentSource = source;
+    settings['selectedAugment'] = augment;
+    settings['selectedAramAugment'] = null;
     settings['selectedChampion'] = null;
     settings['customImage'] = null;
     settings['customFrame'] = null;
@@ -1604,17 +1623,32 @@ function clearCustomFrame() {
 async function setLanguage(value) {
     settings['language'] = value;
     await getAugmentData(value);
+    displayAugments(arenaJsonData);
+    filterArenaAugments();
+
+    await loadModeAugmentData(value);
     if (settings['selectedAugment']) {
-        setSelectedAugment(settings['selectedAugment']['id']);
+        setSelectedAugment(settings['selectedAugment']['id'], selectedAugmentSource);
     }
 
-    const augmentsList = document.getElementById("augmentsList");
-    augmentsList.innerHTML = "";
-    const currentArenaJsonData = arenaJsonData;
-    displayAugments(currentArenaJsonData);
-    filterAugments();
-
     mergeAugmentImages();
+}
+
+// Add Arena's borrowed augments (and build the ARAM tab) from the raw
+// CommunityDragon files — see modeAugments.js. Runs after en_us.json is
+// already on screen, since kiwi.bin + the stringtable are large downloads.
+async function loadModeAugmentData(language = 'en_us') {
+    try {
+        const { arena, aram } = await loadModeAugments(language);
+        displayAugments(mergeArenaAugments(arena));
+        filterArenaAugments();
+        if (aram) {
+            displayAramAugments(aram);
+            filterAramAugments();
+        }
+    } catch (error) {
+        console.error('Failed to load mode augments:', error);
+    }
 }
 
 async function getArenaJson() {
@@ -1623,6 +1657,7 @@ async function getArenaJson() {
     const currentArenaJsonData = arenaJsonData;
     displayAugments(currentArenaJsonData);
     filterArenaAugments();
+    await loadModeAugmentData();
 }
 
 async function getChampionJson() {
@@ -1641,18 +1676,10 @@ function extractItemCode(filename) {
 
 // Fetch arena item descriptions from stringtable and enhance arena items data
 async function fetchArenaItemDescriptions() {
-    const stringtableUrl = "https://raw.communitydragon.org/pbe/game/en_us/data/menu/en_us/lol.stringtable.json";
-
     try {
         console.log("Fetching arena item descriptions from stringtable...");
-        const response = await fetch(stringtableUrl);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const entries = data.entries || {};
+        // Shared with modeAugments.js so the stringtable downloads once.
+        const entries = await getStringtable('en_us');
 
         // Step 1: Build name-to-codes mapping from stringtable
         console.log("Building name-to-codes mapping...");
@@ -1865,8 +1892,9 @@ async function init() {
     await displayCustomAugments();
     filterCustomAugments();
 
-    // Initialize ARAM augments
-    displayAramAugments();
+    // Initialize ARAM augments with the legacy list; getArenaJson() swaps in
+    // the full kiwi-built list once it loads.
+    displayLegacyAramAugments();
     filterAramAugments();
 
     // Preload stat icons for inline images

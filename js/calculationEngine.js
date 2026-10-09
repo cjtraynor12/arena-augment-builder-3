@@ -58,7 +58,10 @@ class CalculationEngine {
             '@spell1KeyBind@': 'Q',
             '@spell2KeyBind@': 'W',
             '@spell3KeyBind@': 'E',
-            '@spell4KeyBind@': 'R'
+            '@spell4KeyBind@': 'R',
+            // ARAM: Mayhem ability-upgrade augments name the champion's
+            // ability at runtime ("Your @SpellName@ gains ...").
+            '@SpellName@': 'Ability'
         };
 
         // Common spell property mappings for better descriptions

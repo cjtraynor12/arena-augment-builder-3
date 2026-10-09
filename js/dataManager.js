@@ -27,6 +27,28 @@ export async function getAugmentData(language = 'en_us') {
     return arenaJsonData;
 }
 
+// Add augments from other sources (see modeAugments.js) to arenaJsonData,
+// skipping any whose id or apiName en_us.json already has — so if
+// CommunityDragon starts exporting one natively, its version wins. Mutates
+// the array in place so modules holding a reference see the additions.
+// Returns the augments that were actually added.
+export function mergeArenaAugments(extraAugments) {
+    if (!Array.isArray(arenaJsonData)) return [];
+    const ids = new Set(arenaJsonData.map(a => a.id));
+    const apiNames = new Set(arenaJsonData.map(a => (a.apiName || '').toLowerCase()));
+    const added = [];
+    for (const augment of extraAugments) {
+        const apiName = (augment.apiName || '').toLowerCase();
+        if (ids.has(augment.id) || apiNames.has(apiName)) continue;
+        ids.add(augment.id);
+        apiNames.add(apiName);
+        added.push(augment);
+    }
+    arenaJsonData.push(...added);
+    arenaJsonData.sort(compareNames);
+    return added;
+}
+
 function getChampionIcon(champion, type) {
     return communityDragonBaseUrl + "assets/characters/" + champion + "/hud/" + champion + "_" + type + ".png";
 }

@@ -5,9 +5,14 @@
 //   node tests/render-descriptions.mjs                 # all augments, all star modes
 //   node tests/render-descriptions.mjs --warnings      # only ones with warnings
 //   node tests/render-descriptions.mjs --name=Homeguard
+//   node tests/render-descriptions.mjs --source=borrowed  # Arena augments from modeAugments.js
+//   node tests/render-descriptions.mjs --source=aram      # ARAM: Mayhem augments
+//   node tests/render-descriptions.mjs --source=all
 //
 // Fetches en_us.json from CommunityDragon at run time so the check always
 // reflects the current PBE data — same URL the app uses in dataManager.js.
+// The borrowed/aram sources go through modeAugments.js (kiwi.bin.json +
+// stringtable + hard-coded fallbacks), exactly like the app.
 //
 // Warning heuristic: Riot never ships literal `[x]` brackets in raw descs
 // (verified across all 221 augments in en_us.json), so any `[…]` in the
@@ -19,6 +24,7 @@
 // canvasRenderer.js. They're expected in the output of this stage.
 
 import { populateDescriptionVariables, arenaJsonDataUrl } from '../js/dataManager.js';
+import { loadModeAugments } from '../js/modeAugments.js';
 
 const LANGUAGE = 'en_us';
 const STAR_MODES = [
@@ -64,12 +70,13 @@ function findWarnings(rendered) {
 }
 
 function parseArgs(argv) {
-    const args = { onlyWarnings: false, nameFilter: null };
+    const args = { onlyWarnings: false, nameFilter: null, source: 'arena' };
     for (const a of argv.slice(2)) {
         if (a === '--warnings' || a === '-w') args.onlyWarnings = true;
         else if (a.startsWith('--name=')) args.nameFilter = a.slice('--name='.length).toLowerCase();
+        else if (a.startsWith('--source=')) args.source = a.slice('--source='.length);
         else if (a === '--help' || a === '-h') {
-            console.log('Usage: node tests/render-descriptions.mjs [--warnings] [--name=Substring]');
+            console.log('Usage: node tests/render-descriptions.mjs [--warnings] [--name=Substring] [--source=arena|borrowed|aram|all]');
             process.exit(0);
         }
     }
@@ -79,15 +86,24 @@ function parseArgs(argv) {
 async function main() {
     const args = parseArgs(process.argv);
 
-    const url = arenaJsonDataUrl + LANGUAGE + '.json';
-    process.stderr.write(`Fetching ${url}\n`);
-    const res = await fetch(url);
-    if (!res.ok) {
-        console.error(`Fetch failed: ${res.status} ${res.statusText}`);
-        process.exit(2);
+    const augments = [];
+    if (args.source === 'arena' || args.source === 'all') {
+        const url = arenaJsonDataUrl + LANGUAGE + '.json';
+        process.stderr.write(`Fetching ${url}\n`);
+        const res = await fetch(url);
+        if (!res.ok) {
+            console.error(`Fetch failed: ${res.status} ${res.statusText}`);
+            process.exit(2);
+        }
+        const body = await res.json();
+        augments.push(...(body.augments || []));
     }
-    const body = await res.json();
-    const augments = body.augments || [];
+    if (['borrowed', 'aram', 'all'].includes(args.source)) {
+        process.stderr.write('Loading mode augments (kiwi.bin.json + stringtable)\n');
+        const { arena, aram } = await loadModeAugments(LANGUAGE);
+        if (args.source !== 'aram') augments.push(...arena);
+        if (args.source !== 'borrowed') augments.push(...(aram || []));
+    }
 
     let totalRenders = 0;
     let warningRenders = 0;
@@ -112,7 +128,7 @@ async function main() {
 
         if (args.onlyWarnings && !augmentHasWarning) continue;
 
-        console.log(`\n=== ${name} ===`);
+        console.log(`\n=== ${name}${augment.dataSource ? ` (${augment.dataSource})` : ''} ===`);
         console.log(`raw: ${augment.desc || '(no desc)'}`);
         for (const { mode, rendered, warnings } of renders) {
             const tag = warnings.length ? ' ⚠' : '';
