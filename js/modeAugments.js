@@ -97,8 +97,12 @@ function localizedText(strings, key) {
 }
 
 // Same conversion CDTB applies (tools.convert_cdragon_path): lowercase, .tex/.dds → .png.
+// File paths CommunityDragon can't name yet appear in the bin as `{xxh64 hash}`
+// and are exported as game/unknown/<hash>.png until the name is known.
 function toCdragonPath(path) {
     if (!path) return '';
+    const hashed = path.match(/^\{([0-9a-f]{16})\}$/i);
+    if (hashed) return `unknown/${hashed[1].toLowerCase()}.png`;
     return path.toLowerCase().replace(/\.(tex|dds)$/, '.png');
 }
 

@@ -62,7 +62,12 @@ export const mergeImages = (
 
           const img = new Image();
           img.crossOrigin = options.crossOrigin;
-          img.onerror = () => reject(new Error("Couldn't load image"));
+          // Skip a layer that fails to load (e.g. a missing icon) rather
+          // than rejecting, which would leave the previous card on screen.
+          img.onerror = () => {
+            console.warn("Couldn't load image, skipping layer:", source.src);
+            resolve(null);
+          };
           img.onload = () => resolve(Object.assign({}, source, { img }));
           img.src = source.src;
         }),
@@ -77,6 +82,14 @@ export const mergeImages = (
 
         for (let index = 0; index < images.length; index++) {
           const image = images[index];
+          if (!image) {
+            // Keep the level overlay even when the frame layer is missing.
+            if (index === 1) {
+              ctx.globalAlpha = 1;
+              await drawLevelOnCanvas(ctx);
+            }
+            continue;
+          }
           ctx.globalAlpha = image.opacity ? image.opacity : 1;
 
           let xOffset = 0;
